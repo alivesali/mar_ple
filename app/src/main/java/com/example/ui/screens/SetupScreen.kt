@@ -66,7 +66,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -83,6 +85,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.model.AbilityActivationMode
 import com.example.model.AiDifficulty
@@ -97,6 +100,8 @@ import com.example.sound.soundscapeInfo
 import com.example.ui.GameUiState
 import com.example.ui.components.AdvancedSettingsTab
 import com.example.ui.components.EnvironmentEffectsOverlay
+import com.example.model.HeroVisualCatalog
+import com.example.ui.components.HeroDetailShowcaseDialog
 import com.example.ui.theme.MysticDeepPlum
 import com.example.ui.components.CharacterPortraitAvatar
 import com.example.ui.theme.HopefulEmerald
@@ -125,6 +130,7 @@ fun SetupScreen(
     onToggleSound: () -> Unit,
     onToggleMusic: () -> Unit = {},
     onToggleAmbient: () -> Unit = {},
+    onPlayHeroStanceSound: (String) -> Unit = {},
     onStartGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -140,6 +146,7 @@ fun SetupScreen(
     )
 
     val expandedCardIds = remember { mutableStateMapOf<String, Boolean>() }
+    var inspectingCharacter by remember { mutableStateOf<GameCharacter?>(null) }
     val activeSlot = uiState.activeSetupPlayerSlot.coerceIn(0, (uiState.playerCount - 1).coerceAtLeast(0))
     val activeSlotTokenColor = PlayerTokenColors[activeSlot % PlayerTokenColors.size]
     val activeSlotColorTitle = PlayerColorNames[activeSlot % PlayerColorNames.size]
@@ -1065,6 +1072,9 @@ fun SetupScreen(
                                         onToggleExpand = {
                                             expandedCardIds[character.id] = !isExpanded
                                         },
+                                        onInspectHero = {
+                                            inspectingCharacter = character
+                                        },
                                         modifier = Modifier.weight(1f)
                                     )
                                 }
@@ -1398,6 +1408,18 @@ fun SetupScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
         }
+
+        inspectingCharacter?.let { hero ->
+            HeroDetailShowcaseDialog(
+                character = hero,
+                onDismissRequest = { inspectingCharacter = null },
+                onSelectHero = {
+                    onSelectCharacterForSlot(activeSlot, hero.id)
+                },
+                isAlreadySelected = uiState.playerCharacterIds.getOrNull(activeSlot) == hero.id,
+                onPlaySoundCue = onPlayHeroStanceSound
+            )
+        }
     }
 }
 
@@ -1411,6 +1433,7 @@ private fun CharacterSelectionCard(
     isExpanded: Boolean,
     onSelectCharacter: () -> Unit,
     onToggleExpand: () -> Unit,
+    onInspectHero: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val slotColor = if (takenByPlayerSlot != null) {
@@ -1477,7 +1500,8 @@ private fun CharacterSelectionCard(
                 CharacterPortraitAvatar(
                     character = character,
                     size = 58.dp,
-                    isSelected = isSelectedForActiveSlot
+                    isSelected = isSelectedForActiveSlot,
+                    modifier = Modifier.clickable { onInspectHero() }
                 )
 
                 Column(
@@ -1540,6 +1564,29 @@ private fun CharacterSelectionCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+            }
+
+            // 3D Hero Inspection & Lore Button
+            val profile = remember(character.id) { HeroVisualCatalog.getProfile(character.id) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(profile.primaryColor.copy(alpha = 0.22f))
+                    .border(1.dp, profile.accentGlowColor.copy(alpha = 0.50f), RoundedCornerShape(10.dp))
+                    .clickable { onInspectHero() }
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .testTag("character_inspect_${character.id}"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "👁️ نمایش سه‌بعدی و هویت قهرمان",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = profile.accentGlowColor,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 11.sp
+                )
             }
 
             // Short Ability Summary + Expand Button

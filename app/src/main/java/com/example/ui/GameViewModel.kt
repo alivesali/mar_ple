@@ -1080,6 +1080,10 @@ class GameViewModel(
         }
     }
 
+    fun playHeroStanceSound(stanceName: String) {
+        soundManager.playHeroStanceSound(stanceName)
+    }
+
     private fun showCardSaveFeedback(message: String) {
         feedbackClearJob?.cancel()
         _uiState.update { it.copy(cardSaveFeedbackMessage = message) }

@@ -331,6 +331,35 @@ class GameSoundManager(context: Context) {
         playEffect(SoundEffect.OBSTACLE_LUCK, 1.0f, 1.0f, 3, 1.15f)
     }
 
+    fun playHeroStanceSound(stanceName: String) {
+        if (!isSoundEnabled) return
+        when (stanceName) {
+            "ATTACK" -> {
+                vibratePattern(longArrayOf(0, 40, 20, 60))
+                playEffect(SoundEffect.TOKEN_STEP, 0.9f, 0.9f, 2, 0.75f)
+            }
+            "DEFENSE" -> {
+                vibratePattern(longArrayOf(0, 50, 30, 80))
+                playEffect(SoundEffect.OBSTACLE_REVERSE, 0.9f, 0.9f, 2, 1.25f)
+            }
+            "ABILITY" -> {
+                vibratePattern(longArrayOf(0, 35, 25, 75))
+                playEffect(SoundEffect.OBSTACLE_LUCK, 1.0f, 1.0f, 2, 1.3f)
+            }
+            "VICTORY" -> {
+                vibratePattern(longArrayOf(0, 40, 30, 50, 30, 90))
+                playEffect(SoundEffect.SIX_BONUS, 1.0f, 1.0f, 2, 1.1f)
+            }
+            "DEFEAT" -> {
+                vibratePattern(longArrayOf(0, 80, 40, 90))
+                playEffect(SoundEffect.OBSTACLE_SWAMP, 0.85f, 0.85f, 2, 0.85f)
+            }
+            else -> { // IDLE or ENTRANCE
+                playEffect(SoundEffect.TURN_CHANGE, 0.75f, 0.75f, 1, 1.2f)
+            }
+        }
+    }
+
     fun playCardDrawSuspenseSound() {
         if (!isSoundEnabled) return
         themeMusicManager.triggerDucking(1100L)

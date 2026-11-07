@@ -126,6 +126,7 @@ fun MysticSnakesAndLaddersApp() {
                         onToggleSound = gameViewModel::toggleSound,
                         onToggleMusic = gameViewModel::toggleMusic,
                         onToggleAmbient = gameViewModel::toggleAmbient,
+                        onPlayHeroStanceSound = gameViewModel::playHeroStanceSound,
                         onStartGame = gameViewModel::startGame
                     )
                 } else {

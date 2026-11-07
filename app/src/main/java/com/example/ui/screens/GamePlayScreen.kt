@@ -87,6 +87,7 @@ import com.example.model.BoardTheme
 import com.example.model.DiceVisualTheme
 import com.example.model.DifficultyLevel
 import com.example.model.GameEventBanner
+import com.example.model.GameCharacter
 import com.example.model.GamePhase
 import com.example.model.LinkType
 import com.example.model.Player
@@ -99,6 +100,7 @@ import com.example.ui.components.CharacterPortraitAvatar
 import com.example.ui.components.CombatLogModal
 import com.example.ui.components.DiceAndTurnPanel
 import com.example.ui.components.EnvironmentEffectsOverlay
+import com.example.ui.components.HeroDetailShowcaseDialog
 import com.example.ui.components.PlayerPawnTokenIcon
 import com.example.ui.components.SnakesAndLaddersBoard
 import com.example.ui.components.TruthOrDareCardDrawOverlay
@@ -151,6 +153,7 @@ fun GamePlayScreen(
     val snakeCount = uiState.boardLinks.count { it.type == LinkType.SNAKE }
     val obstacleCount = uiState.boardObstacles.size
     val cardCount = uiState.truthOrDareCards.size
+    var inspectingHero by remember { mutableStateOf<GameCharacter?>(null) }
 
     val bgTop by animateColorAsState(
         targetValue = activeTheme.screenBgTop,
@@ -303,6 +306,7 @@ fun GamePlayScreen(
                                 isThemeSwitcherExpanded = false
                                 onOpenCombatLog()
                             },
+                            onInspectHero = { inspectingHero = it },
                             onRestartGame = {
                                 isTopMenuExpanded = false
                                 isThemeSwitcherExpanded = false
@@ -445,6 +449,7 @@ fun GamePlayScreen(
                             isThemeSwitcherExpanded = false
                             onOpenCombatLog()
                         },
+                        onInspectHero = { inspectingHero = it },
                         onRestartGame = {
                             isTopMenuExpanded = false
                             isThemeSwitcherExpanded = false
@@ -608,6 +613,13 @@ fun GamePlayScreen(
                 onBackToSetup = onBackToSetup
             )
         }
+
+        inspectingHero?.let { hero ->
+            HeroDetailShowcaseDialog(
+                character = hero,
+                onDismissRequest = { inspectingHero = null }
+            )
+        }
     }
 }
 
@@ -640,6 +652,7 @@ private fun UnifiedTopHeaderWithCollapsibleMenu(
     onOpenStudioSettings: () -> Unit,
     onOpenCardManager: () -> Unit,
     onOpenCombatLog: () -> Unit = {},
+    onInspectHero: (GameCharacter) -> Unit = {},
     onRestartGame: () -> Unit,
     onRegenerateBoard: () -> Unit,
     onToggleSound: () -> Unit,
@@ -944,6 +957,7 @@ private fun UnifiedTopHeaderWithCollapsibleMenu(
                 currentTurnPlayerId = currentTurnPlayerId,
                 leaderPlayerId = leaderPlayerId,
                 isSinglePlayerMode = isSinglePlayerMode,
+                onInspectHero = onInspectHero,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -1258,6 +1272,7 @@ private fun PlayersStatusStrip(
     currentTurnPlayerId: Int?,
     leaderPlayerId: Int?,
     isSinglePlayerMode: Boolean = false,
+    onInspectHero: (GameCharacter) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
@@ -1317,6 +1332,7 @@ private fun PlayersStatusStrip(
                 modifier = Modifier
                     .height(36.dp)
                     .clip(RoundedCornerShape(11.dp))
+                    .clickable { onInspectHero(character) }
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
