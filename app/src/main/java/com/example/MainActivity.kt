@@ -176,8 +176,11 @@ fun MysticSnakesAndLaddersApp() {
                     } else {
                         uiState.players.map { it.colorIndex }
                     },
+                    unlockedSkinIds = uiState.unlockedPawnSkinIds,
                     onEquipSkinForSlot = gameViewModel::equipPawnSkinForSlot,
                     onEquipSkinForAllSlots = gameViewModel::equipPawnSkinForAll,
+                    onUnlockSkin = gameViewModel::unlockPawnSkin,
+                    onUnlockAllSkins = gameViewModel::unlockAllPawnSkins,
                     onDismissRequest = gameViewModel::closePawnCollection
                 )
             }
@@ -249,6 +252,10 @@ fun MysticSnakesAndLaddersApp() {
                     onSelectAnimationQuality = gameViewModel::setAnimationQuality,
                     onSelectAnimationSpeed = gameViewModel::setAnimationSpeed,
                     onToggleCameraFollow = gameViewModel::toggleCameraFollow,
+                    onEquipPawnSkinForSlot = gameViewModel::equipPawnSkinForSlot,
+                    onEquipPawnSkinForAll = gameViewModel::equipPawnSkinForAll,
+                    onUnlockPawnSkin = gameViewModel::unlockPawnSkin,
+                    onUnlockAllPawnSkins = gameViewModel::unlockAllPawnSkins,
                     onDismiss = gameViewModel::closeAdvancedSettings
                 )
             }

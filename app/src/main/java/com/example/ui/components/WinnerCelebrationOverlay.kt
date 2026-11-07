@@ -214,6 +214,30 @@ fun WinnerCelebrationOverlay(
                         size = 78.dp,
                         isSelected = true
                     )
+                    // Equipped Winning Pawn with Victory Burst Animation
+                    Box(
+                        modifier = Modifier
+                            .size(78.dp)
+                            .clip(CircleShape)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        winner.color.copy(alpha = 0.40f),
+                                        RadiantGold.copy(alpha = 0.25f),
+                                        Color(0xFF0F172A)
+                                    )
+                                )
+                            )
+                            .border(2.5.dp, RadiantGold, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PawnSkinRenderer(
+                            skin = winner.pawnSkin,
+                            playerColor = winner.color,
+                            previewMode = PawnPreviewMode.VICTORY_BURST,
+                            size = 72.dp
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
@@ -260,6 +284,13 @@ fun WinnerCelebrationOverlay(
                         style = MaterialTheme.typography.labelLarge,
                         color = RadiantGold,
                         fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "♟️ پوسته پیروز: ${winner.pawnSkin.namePersian} (${winner.pawnSkin.ambientParticleEmoji})",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFE2E8F0),
+                        fontWeight = FontWeight.Medium
                     )
                 }
 

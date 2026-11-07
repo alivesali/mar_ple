@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.model.PawnMaterialType
@@ -282,9 +284,12 @@ fun DrawScope.drawPawnSkinGeometry(
     energyPulse: Float
 ) {
     when {
-        // --- 1. ROYAL SKINS: Imperial Crown ---
+        // --- 1. ROYAL SKINS: Imperial Crown & Sovereign Pawn ---
         skin.id == "royal_mini_crown" -> {
             drawImperialCrownPawn(center, radius, playerColor)
+        }
+        skin.id == "royal_sovereign_pawn" -> {
+            drawRoyalSovereignPawn(center, radius, playerColor)
         }
 
         // --- 2. ROYAL SKINS: Winged Victory Figurine ---
@@ -292,25 +297,36 @@ fun DrawScope.drawPawnSkinGeometry(
             drawWingedVictoryPawn(center, radius, playerColor)
         }
 
-        // --- 3. HERO MINIATURE: Chibi Hero Figurine ---
-        skin.materialType == PawnMaterialType.CHIBI_FIGURE -> {
+        // --- 3. HERO MINIATURE: Replica & 3D Hero Figurine ---
+        skin.id == "mini_hero_replica" || skin.id == "mini_hero_3d_figure" -> {
+            drawHeroMiniatureReplicaPawn(center, radius, playerColor, skin, rotationDeg)
+        }
+        skin.materialType == PawnMaterialType.CHIBI_FIGURE || skin.materialType == PawnMaterialType.HERO_MINIATURE -> {
             drawChibiHeroPawn(center, radius, playerColor, skin)
         }
 
-        // --- 4. NATURE: Leaf & Floral Pawns ---
+        // --- 4. NATURE: Leaf, Flower & Green Gaia Orb ---
         skin.id == "nature_leaf" -> {
             drawDewdropLeafPawn(center, radius, playerColor)
         }
         skin.id == "nature_magic_flower" -> {
             drawLotusBlossomPawn(center, radius, playerColor)
         }
+        skin.id == "nature_green_orb" -> {
+            drawEmeraldNatureGaiaPawn(center, radius, playerColor, rotationDeg)
+        }
 
-        // --- 5. ELEMENTAL & FANTASY: Living Flame ---
+        // --- 5. LUXURY: Precious Gemstones (Emerald & Ruby Cut) ---
+        skin.materialType == PawnMaterialType.PRECIOUS_GEMSTONE || skin.id == "luxury_gemstones" -> {
+            drawPreciousGemstonesPawn(center, radius, playerColor, rotationDeg)
+        }
+
+        // --- 6. ELEMENTAL & FANTASY: Living Flame ---
         skin.materialType == PawnMaterialType.LIVING_FIRE -> {
             drawLivingFlamePawn(center, radius, playerColor, energyPulse)
         }
 
-        // --- 6. LUXURY: Prismatic Diamond & Amethyst Crystal ---
+        // --- 7. LUXURY: Prismatic Diamond & Amethyst Crystal ---
         skin.materialType == PawnMaterialType.PRISMATIC_DIAMOND -> {
             drawPrismaticDiamondPawn(center, radius, playerColor, rotationDeg)
         }
@@ -318,22 +334,31 @@ fun DrawScope.drawPawnSkinGeometry(
             drawCrystalMonolithPawn(center, radius, playerColor, skin, rotationDeg)
         }
 
-        // --- 7. FANTASY & ELEMENTAL: Plasma / Reactor Core ---
+        // --- 8. FANTASY & SPECIAL: Luminous Energy, Celestial & Festive ---
+        skin.id == "fantasy_luminous_energy" -> {
+            drawLuminousEnergyPawn(center, radius, playerColor, rotationDeg, energyPulse)
+        }
+        skin.id == "special_rare_celestial" -> {
+            drawCelestialRarePawn(center, radius, playerColor, rotationDeg)
+        }
+        skin.id == "special_festive_jubilee" -> {
+            drawFestiveJubileePawn(center, radius, playerColor, rotationDeg, energyPulse)
+        }
         skin.materialType == PawnMaterialType.PLASMA_ENERGY -> {
             drawPlasmaReactorPawn(center, radius, playerColor, skin, rotationDeg, energyPulse)
         }
 
-        // --- 8. LUXURY: Pure 24K Gold or Silver Metallic Pawn ---
+        // --- 9. LUXURY: Pure 24K Gold or Silver Metallic Pawn ---
         skin.materialType == PawnMaterialType.PURE_GOLD || skin.materialType == PawnMaterialType.PURE_SILVER -> {
             drawLuxuryPreciousMetalPawn(center, radius, playerColor, skin)
         }
 
-        // --- 9. CLASSIC: Translucent Glass Sphere ---
+        // --- 10. CLASSIC: Translucent Glass Sphere ---
         skin.materialType == PawnMaterialType.TRANSLUCENT_GLASS -> {
             drawTranslucentGlassPawn(center, radius, playerColor)
         }
 
-        // --- 10. CLASSIC: Minimalist Puck ---
+        // --- 11. CLASSIC: Minimalist Puck ---
         skin.id == "classic_minimal" -> {
             drawMinimalistPuckPawn(center, radius, playerColor)
         }
@@ -941,6 +966,375 @@ private fun DrawScope.drawVictoryCelebrationBurst(
             color = if (i % 2 == 0) RadiantGold else playerColor,
             radius = 4.5f * (1f - progress * 0.5f),
             center = Offset(sx, sy)
+        )
+    }
+}
+
+// -------------------------------------------------------------------------------------------------
+// NEW SPECIALIZED PAWN SKIN RENDERERS
+// -------------------------------------------------------------------------------------------------
+
+private fun DrawScope.drawRoyalSovereignPawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color
+) {
+    // Chess monarch body with royal velvet and gold embellishments
+    val bodyH = radius * 1.55f
+    val bodyW = radius * 1.15f
+    val top = center.y - bodyH * 0.55f
+
+    // 1. Velvet Mantle
+    drawOval(
+        brush = Brush.verticalGradient(
+            colors = listOf(Color(0xFF6366F1), Color(0xFF312E81), Color(0xFF1E1B4B)),
+            startY = top,
+            endY = top + bodyH
+        ),
+        topLeft = Offset(center.x - bodyW * 0.5f, top),
+        size = Size(bodyW, bodyH)
+    )
+
+    // 2. Ermine & Gold Royal Collar
+    drawOval(
+        brush = Brush.horizontalGradient(
+            colors = listOf(Color(0xFFFFFBEB), RadiantGold, Color(0xFFFFFBEB)),
+            startX = center.x - bodyW * 0.45f,
+            endX = center.x + bodyW * 0.45f
+        ),
+        topLeft = Offset(center.x - bodyW * 0.45f, top + bodyH * 0.38f),
+        size = Size(bodyW * 0.90f, bodyH * 0.22f)
+    )
+
+    // 3. Player Accent Sash
+    drawOval(
+        color = playerColor,
+        topLeft = Offset(center.x - bodyW * 0.35f, top + bodyH * 0.62f),
+        size = Size(bodyW * 0.70f, bodyH * 0.14f)
+    )
+
+    // 4. Crown Headpiece with Golden Cross
+    val headR = radius * 0.36f
+    val headY = top + headR * 0.5f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFE066), RadiantGold, Color(0xFFB45309)),
+            center = Offset(center.x - headR * 0.3f, headY - headR * 0.3f),
+            radius = headR * 1.2f
+        ),
+        radius = headR,
+        center = Offset(center.x, headY)
+    )
+
+    // Finial cross atop crown
+    val crossH = headR * 0.65f
+    drawLine(
+        color = RadiantGold,
+        start = Offset(center.x, headY - headR - crossH),
+        end = Offset(center.x, headY - headR + 2f),
+        strokeWidth = 3f
+    )
+    drawLine(
+        color = RadiantGold,
+        start = Offset(center.x - crossH * 0.45f, headY - headR - crossH * 0.6f),
+        end = Offset(center.x + crossH * 0.45f, headY - headR - crossH * 0.6f),
+        strokeWidth = 3f
+    )
+}
+
+private fun DrawScope.drawHeroMiniatureReplicaPawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color,
+    skin: PawnSkin,
+    rotationDeg: Float
+) {
+    // 3D Miniature Paladin/Hero Figurine with Shield & Crest
+    val h = radius * 1.45f
+    val w = radius * 1.05f
+
+    // Shield Background in Player Accent Color
+    val shieldPath = Path().apply {
+        moveTo(center.x, center.y - h * 0.55f)
+        lineTo(center.x + w * 0.48f, center.y - h * 0.30f)
+        lineTo(center.x + w * 0.42f, center.y + h * 0.15f)
+        lineTo(center.x, center.y + h * 0.55f)
+        lineTo(center.x - w * 0.42f, center.y + h * 0.15f)
+        lineTo(center.x - w * 0.48f, center.y - h * 0.30f)
+        close()
+    }
+
+    drawPath(
+        path = shieldPath,
+        brush = Brush.radialGradient(
+            colors = listOf(playerColor, playerColor.copy(alpha = 0.85f), Color(0xFF0F172A)),
+            center = center,
+            radius = radius * 1.2f
+        )
+    )
+    drawPath(
+        path = shieldPath,
+        brush = Brush.linearGradient(
+            colors = listOf(RadiantGold, Color(0xFFFFFBEB), RadiantGold),
+            start = Offset(center.x - w * 0.5f, center.y),
+            end = Offset(center.x + w * 0.5f, center.y)
+        ),
+        style = Stroke(width = 3.5f)
+    )
+
+    // Golden Knight Crest in Center
+    val coreR = radius * 0.35f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFF3B0), RadiantGold, Color(0xFFB45309)),
+            center = Offset(center.x - coreR * 0.2f, center.y - coreR * 0.2f),
+            radius = coreR
+        ),
+        radius = coreR,
+        center = center
+    )
+
+    // Crossed Swords emblem
+    val bladeLen = coreR * 0.75f
+    drawLine(
+        color = Color.White,
+        start = Offset(center.x - bladeLen, center.y - bladeLen),
+        end = Offset(center.x + bladeLen, center.y + bladeLen),
+        strokeWidth = 2.5f
+    )
+    drawLine(
+        color = Color.White,
+        start = Offset(center.x + bladeLen, center.y - bladeLen),
+        end = Offset(center.x - bladeLen, center.y + bladeLen),
+        strokeWidth = 2.5f
+    )
+}
+
+private fun DrawScope.drawEmeraldNatureGaiaPawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color,
+    rotationDeg: Float
+) {
+    // Jade Gaia Emerald Orb with Living Vines
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color(0xFFA7F3D0),
+                Color(0xFF10B981),
+                Color(0xFF065F46),
+                Color(0xFF022C22)
+            ),
+            center = Offset(center.x - radius * 0.32f, center.y - radius * 0.32f),
+            radius = radius * 1.15f
+        ),
+        radius = radius * 0.88f,
+        center = center
+    )
+
+    // Player Identification Accent Ring
+    drawCircle(
+        color = playerColor.copy(alpha = 0.85f),
+        radius = radius * 0.94f,
+        center = center,
+        style = Stroke(width = 3f)
+    )
+
+    // Spiral Nature Leaves orbiting
+    val leafAngle = (rotationDeg * (PI / 180f)).toFloat()
+    for (i in 0 until 4) {
+        val angle = leafAngle + i * (PI.toFloat() / 2f)
+        val lx = center.x + cos(angle) * (radius * 0.72f)
+        val ly = center.y + sin(angle) * (radius * 0.72f)
+        drawCircle(
+            color = Color(0xFF84CC16),
+            radius = radius * 0.16f,
+            center = Offset(lx, ly)
+        )
+        drawCircle(
+            color = Color(0xFFECFCCB),
+            radius = radius * 0.08f,
+            center = Offset(lx - 1f, ly - 1f)
+        )
+    }
+}
+
+private fun DrawScope.drawPreciousGemstonesPawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color,
+    rotationDeg: Float
+) {
+    // Cut Brilliant Gemstones: Emerald & Ruby Facets with specular dispersion
+    val r = radius * 0.88f
+    val hexPath = Path()
+    val sides = 6
+    for (i in 0 until sides) {
+        val angle = (i * (2 * PI / sides) + rotationDeg * (PI / 180f)).toFloat()
+        val x = center.x + cos(angle) * r
+        val y = center.y + sin(angle) * r
+        if (i == 0) hexPath.moveTo(x, y) else hexPath.lineTo(x, y)
+    }
+    hexPath.close()
+
+    // Dual Gemstone Body (Emerald Green & Ruby Crimson split)
+    drawPath(
+        path = hexPath,
+        brush = Brush.linearGradient(
+            colors = listOf(Color(0xFF10B981), Color(0xFF059669), Color(0xFFDC2626), Color(0xFF991B1B)),
+            start = Offset(center.x - r, center.y - r),
+            end = Offset(center.x + r, center.y + r)
+        )
+    )
+
+    // Golden Edge Faceting
+    drawPath(
+        path = hexPath,
+        brush = Brush.linearGradient(
+            colors = listOf(RadiantGold, Color(0xFFFFFBEB), RadiantGold),
+            start = Offset(center.x - r, center.y),
+            end = Offset(center.x + r, center.y)
+        ),
+        style = Stroke(width = 3f)
+    )
+
+    // Central Table Facet
+    val innerR = r * 0.50f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color.White.copy(alpha = 0.90f), Color(0xFFA7F3D0), playerColor),
+            center = Offset(center.x - innerR * 0.25f, center.y - innerR * 0.25f),
+            radius = innerR
+        ),
+        radius = innerR,
+        center = center
+    )
+}
+
+private fun DrawScope.drawLuminousEnergyPawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color,
+    rotationDeg: Float,
+    energyPulse: Float
+) {
+    val r = radius * 0.85f * energyPulse
+
+    // 1. Sunburst Radiant Flare Rays
+    val rayCount = 12
+    for (i in 0 until rayCount) {
+        val angle = (i * (2 * PI / rayCount) + rotationDeg * (PI / 180f)).toFloat()
+        val len = if (i % 2 == 0) r * 1.35f else r * 1.15f
+        drawLine(
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFFFFFBEB), RadiantGold, Color.Transparent),
+                start = center,
+                end = Offset(center.x + cos(angle) * len, center.y + sin(angle) * len)
+            ),
+            start = center,
+            end = Offset(center.x + cos(angle) * len, center.y + sin(angle) * len),
+            strokeWidth = 3f
+        )
+    }
+
+    // 2. Brilliant White-Gold Plasma Sphere
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(
+                Color.White,
+                Color(0xFFFEF08A),
+                Color(0xFFF59E0B),
+                playerColor.copy(alpha = 0.85f)
+            ),
+            center = center,
+            radius = r
+        ),
+        radius = r,
+        center = center
+    )
+}
+
+private fun DrawScope.drawCelestialRarePawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color,
+    rotationDeg: Float
+) {
+    // Deep Space Indigo Sphere
+    val r = radius * 0.82f
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFE0E7FF), Color(0xFF6366F1), Color(0xFF312E81), Color(0xFF0F172A)),
+            center = Offset(center.x - r * 0.35f, center.y - r * 0.35f),
+            radius = r * 1.25f
+        ),
+        radius = r,
+        center = center
+    )
+
+    // Tilted Orbital Planetary Ring
+    withTransform({
+        rotate(degrees = -25f, pivot = center)
+    }) {
+        drawOval(
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    playerColor.copy(alpha = 0.9f),
+                    RadiantGold,
+                    playerColor.copy(alpha = 0.9f),
+                    Color.Transparent
+                )
+            ),
+            topLeft = Offset(center.x - r * 1.45f, center.y - r * 0.32f),
+            size = Size(r * 2.90f, r * 0.64f),
+            style = Stroke(width = 3.5f)
+        )
+    }
+
+    // Twinkling Star Point
+    val starAngle = (rotationDeg * (PI / 180f)).toFloat()
+    val sx = center.x + cos(starAngle) * (r * 1.15f)
+    val sy = center.y + sin(starAngle) * (r * 0.45f)
+    drawCircle(Color.White, radius = 3.5f, center = Offset(sx, sy))
+}
+
+private fun DrawScope.drawFestiveJubileePawn(
+    center: Offset,
+    radius: Float,
+    playerColor: Color,
+    rotationDeg: Float,
+    energyPulse: Float
+) {
+    val r = radius * 0.85f
+
+    // Golden Celebration Sphere
+    drawCircle(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0xFFFFFBEB), RadiantGold, Color(0xFFB45309)),
+            center = Offset(center.x - r * 0.3f, center.y - r * 0.3f),
+            radius = r * 1.2f
+        ),
+        radius = r,
+        center = center
+    )
+
+    // Player Identification Ribbon Sash
+    drawOval(
+        color = playerColor,
+        topLeft = Offset(center.x - r * 0.85f, center.y - r * 0.20f),
+        size = Size(r * 1.70f, r * 0.40f)
+    )
+
+    // Confetti Sparkles
+    val confettiColors = listOf(Color(0xFFEF4444), Color(0xFF10B981), Color(0xFF38BDF8), Color(0xFFA855F7))
+    for (i in 0 until 6) {
+        val a = ((i * 60f + rotationDeg) * (PI / 180f)).toFloat()
+        val dist = r * (0.95f + 0.35f * ((i % 2) + 0.5f) * energyPulse)
+        drawCircle(
+            color = confettiColors[i % confettiColors.size],
+            radius = 3f,
+            center = Offset(center.x + cos(a) * dist, center.y + sin(a) * dist)
         )
     }
 }

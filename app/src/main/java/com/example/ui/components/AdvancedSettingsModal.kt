@@ -109,6 +109,7 @@ import kotlin.math.roundToInt
 enum class AdvancedSettingsTab(val title: String, val emoji: String) {
     BOARD_AND_THEME("صفحه و تم", "🎨"),
     EFFECTS_AND_MUSIC("استودیو جلوه و صدا", "✨"),
+    PAWN_COLLECTION("کلکسیون مهره‌ها", "♟️"),
     CUSTOM_CHARACTER("ساخت کاراکتر", "🦸"),
     CARDS_MANAGER("کارت‌ها", "🃏"),
     PROFILES("پروفایل‌ها", "💾")
@@ -188,6 +189,10 @@ fun AdvancedSettingsModal(
     onSelectAnimationQuality: (AnimationQuality) -> Unit = {},
     onSelectAnimationSpeed: (AnimationSpeed) -> Unit = {},
     onToggleCameraFollow: () -> Unit = {},
+    onEquipPawnSkinForSlot: (slot: Int, skinId: String) -> Unit = { _, _ -> },
+    onEquipPawnSkinForAll: (skinId: String) -> Unit = {},
+    onUnlockPawnSkin: (skinId: String) -> Unit = {},
+    onUnlockAllPawnSkins: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     var activeTab by remember { mutableStateOf(initialTab) }
@@ -314,26 +319,24 @@ fun AdvancedSettingsModal(
                         }
                     }
 
-                    // 5-Tab Navigation Strip
-                    Row(
+                    // Navigation Tabs Strip
+                    LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(MysticIndigoSurface.copy(alpha = 0.7f))
                             .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        AdvancedSettingsTab.entries.forEach { tab ->
+                        items(AdvancedSettingsTab.entries) { tab ->
                             val isSelected = activeTab == tab
                             val tabBg by animateColorAsState(
                                 targetValue = if (isSelected) RadiantGold else MysticCardSurface,
                                 label = "settings_tab_${tab.name}"
                             )
                             val textCol = if (isSelected) Color(0xFF1A0F2E) else Color.White
-
                             Row(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .height(42.dp)
+                                    .height(44.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(tabBg)
                                     .border(
@@ -342,20 +345,19 @@ fun AdvancedSettingsModal(
                                         RoundedCornerShape(12.dp)
                                     )
                                     .clickable { activeTab = tab }
-                                    .padding(horizontal = 3.dp)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
                                     .testTag("settings_tab_${tab.name}"),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                Text(text = tab.emoji, style = MaterialTheme.typography.bodySmall)
-                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(text = tab.emoji, style = MaterialTheme.typography.bodyMedium)
+                                Spacer(modifier = Modifier.width(4.dp))
                                 Text(
                                     text = tab.title,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = textCol,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -419,6 +421,23 @@ fun AdvancedSettingsModal(
                                 onUpdateCard = onUpdateCard,
                                 onDeleteCard = onDeleteCard,
                                 onToggleCategoryEnabled = onToggleCardCategory
+                            )
+                            AdvancedSettingsTab.PAWN_COLLECTION -> PawnCollectionContent(
+                                currentEquippedSkinId = uiState.playerPawnSkinIds.getOrElse(uiState.pawnCollectionActiveSlot) { "classic_standard" },
+                                playerPawnSkinIds = uiState.playerPawnSkinIds,
+                                playerCount = uiState.playerCount,
+                                initialPlayerSlot = uiState.pawnCollectionActiveSlot,
+                                playerColorIndices = if (uiState.phase == com.example.model.GamePhase.SETUP) {
+                                    List(uiState.playerCount) { it }
+                                } else {
+                                    uiState.players.map { it.colorIndex }
+                                },
+                                unlockedSkinIds = uiState.unlockedPawnSkinIds,
+                                onEquipSkinForSlot = onEquipPawnSkinForSlot,
+                                onEquipSkinForAllSlots = onEquipPawnSkinForAll,
+                                onUnlockSkin = onUnlockPawnSkin,
+                                onUnlockAllSkins = onUnlockAllPawnSkins,
+                                onClose = null
                             )
                             AdvancedSettingsTab.PROFILES -> SettingsProfilesTab(
                                 uiState = uiState,

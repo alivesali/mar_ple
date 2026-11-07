@@ -26,6 +26,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -77,9 +80,57 @@ fun PawnCollectionDialog(
     playerCount: Int = 2,
     initialPlayerSlot: Int = 0,
     playerColorIndices: List<Int> = listOf(0, 1, 2, 3),
+    unlockedSkinIds: Set<String> = PawnSkinCatalog.defaultUnlockedSkinIds,
     onEquipSkinForSlot: (slot: Int, skinId: String) -> Unit,
     onEquipSkinForAllSlots: (skinId: String) -> Unit,
+    onUnlockSkin: (skinId: String) -> Unit = {},
+    onUnlockAllSkins: () -> Unit = {},
     onDismissRequest: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("pawn_collection_dialog"),
+            color = Color(0xFF090D16)
+        ) {
+            PawnCollectionContent(
+                currentEquippedSkinId = currentEquippedSkinId,
+                playerPawnSkinIds = playerPawnSkinIds,
+                playerCount = playerCount,
+                initialPlayerSlot = initialPlayerSlot,
+                playerColorIndices = playerColorIndices,
+                unlockedSkinIds = unlockedSkinIds,
+                onEquipSkinForSlot = onEquipSkinForSlot,
+                onEquipSkinForAllSlots = onEquipSkinForAllSlots,
+                onUnlockSkin = onUnlockSkin,
+                onUnlockAllSkins = onUnlockAllSkins,
+                onClose = onDismissRequest
+            )
+        }
+    }
+}
+
+/**
+ * Reusable Pawn Collection & Customization view.
+ * Can be embedded as a tab inside Settings or used in a full Dialog.
+ */
+@Composable
+fun PawnCollectionContent(
+    currentEquippedSkinId: String = "classic_standard",
+    playerPawnSkinIds: List<String> = emptyList(),
+    playerCount: Int = 2,
+    initialPlayerSlot: Int = 0,
+    playerColorIndices: List<Int> = listOf(0, 1, 2, 3),
+    unlockedSkinIds: Set<String> = PawnSkinCatalog.defaultUnlockedSkinIds,
+    onEquipSkinForSlot: (slot: Int, skinId: String) -> Unit,
+    onEquipSkinForAllSlots: (skinId: String) -> Unit,
+    onUnlockSkin: (skinId: String) -> Unit = {},
+    onUnlockAllSkins: () -> Unit = {},
+    onClose: (() -> Unit)? = null
 ) {
     var activeSlot by remember { mutableIntStateOf(initialPlayerSlot.coerceIn(0, (playerCount - 1).coerceAtLeast(0))) }
     var selectedCategory by remember { mutableStateOf<PawnSkinCategory?>(null) } // null = All
@@ -103,158 +154,179 @@ fun PawnCollectionDialog(
         }
     }
 
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Subtle ambient backdrop
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .testTag("pawn_collection_dialog"),
-            color = Color(0xFF090D16)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Subtle ambient backdrop
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(
-                                    previewSkin.primaryColor.copy(alpha = 0.22f),
-                                    Color(0xFF0F172A),
-                                    Color(0xFF090D16)
-                                ),
-                                radius = 900f
-                            )
-                        )
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            previewSkin.primaryColor.copy(alpha = 0.22f),
+                            Color(0xFF0F172A),
+                            Color(0xFF090D16)
+                        ),
+                        radius = 900f
+                    )
                 )
+        )
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            // 1. Header Bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 1. Header Bar
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    if (onClose != null) {
+                        IconButton(
+                            onClick = onClose,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.08f))
                         ) {
-                            IconButton(
-                                onClick = onDismissRequest,
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.08f))
-                            ) {
-                                Icon(Icons.Filled.Close, contentDescription = "بستن", tint = Color.White)
-                            }
-
-                            Column {
-                                Text(
-                                    text = "مجموعه و شخصی‌سازی مهره‌ها",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Black,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "Pawn Collection • ${PawnSkinCatalog.allSkins.size.toPersianDigits()} پوسته زیبا و مستقل از قهرمان",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = RadiantGold,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Icon(Icons.Filled.Close, contentDescription = "بستن", tint = Color.White)
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 2. Player Slot Selector Row (Choose which player is equipping)
-                    if (playerCount > 1) {
-                        PlayerSlotSelectorRow(
-                            playerCount = playerCount,
-                            activeSlot = activeSlot,
-                            playerColorIndices = playerColorIndices,
-                            onSelectSlot = { newSlot ->
-                                activeSlot = newSlot
-                                val newSlotSkinId = playerPawnSkinIds.getOrElse(newSlot) { currentEquippedSkinId }
-                                previewSkin = PawnSkinCatalog.getSkinById(newSlotSkinId)
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                    }
-
-                    // 3. Top Interactive Pawn Showcase Stage (Selected Skin Preview)
-                    PawnPreviewStage(
-                        skin = previewSkin,
-                        playerColor = activePlayerColor,
-                        previewMode = previewMode,
-                        onSelectPreviewMode = { previewMode = it },
-                        isEquipped = previewSkin.id == activeSlotEquippedSkinId,
-                        onEquipForActive = {
-                            onEquipSkinForSlot(activeSlot, previewSkin.id)
-                        },
-                        onEquipForAll = {
-                            onEquipSkinForAllSlots(previewSkin.id)
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // 4. Category Filter Tabs Row
-                    CategoryFilterRow(
-                        selectedCategory = selectedCategory,
-                        onSelectCategory = { selectedCategory = it }
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 5. Grid of Skins
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 100.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(bottom = 12.dp)
-                    ) {
-                        items(filteredSkins, key = { it.id }) { skin ->
-                            val isSelected = skin.id == previewSkin.id
-                            val isEquipped = skin.id == activeSlotEquippedSkinId
-
-                            PawnSkinCard(
-                                skin = skin,
-                                playerColor = activePlayerColor,
-                                isSelected = isSelected,
-                                isEquipped = isEquipped,
-                                onClick = {
-                                    previewSkin = skin
-                                }
-                            )
-                        }
-                    }
-
-                    // 6. Bottom Done Button
-                    Button(
-                        onClick = onDismissRequest,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = RadiantGold)
-                    ) {
+                    Column {
                         Text(
-                            text = "تأیید و بازگشت به بازی",
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF140B24),
-                            fontSize = 15.sp
+                            text = "مجموعه و شخصی‌سازی مهره‌ها",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Pawn Collection • ${PawnSkinCatalog.allSkins.size.toPersianDigits()} پوسته کامل در ۸ دسته‌بندی",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = RadiantGold,
+                            fontWeight = FontWeight.Bold
                         )
                     }
+                }
+
+                // Quick Unlock All Button
+                TextButton(
+                    onClick = onUnlockAllSkins,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
+                ) {
+                    Icon(
+                        Icons.Filled.LockOpen,
+                        contentDescription = null,
+                        tint = RadiantGold,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "آزادسازی همه",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = RadiantGold,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 2. Player Slot Selector Row (Choose which player is equipping)
+            if (playerCount > 1) {
+                PlayerSlotSelectorRow(
+                    playerCount = playerCount,
+                    activeSlot = activeSlot,
+                    playerColorIndices = playerColorIndices,
+                    onSelectSlot = { newSlot ->
+                        activeSlot = newSlot
+                        val newSlotSkinId = playerPawnSkinIds.getOrElse(newSlot) { currentEquippedSkinId }
+                        previewSkin = PawnSkinCatalog.getSkinById(newSlotSkinId)
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // 3. Top Interactive Pawn Showcase Stage (Selected Skin Preview)
+            val isCurrentSkinUnlocked = unlockedSkinIds.contains(previewSkin.id) || !previewSkin.isLocked
+            PawnPreviewStage(
+                skin = previewSkin,
+                playerColor = activePlayerColor,
+                previewMode = previewMode,
+                onSelectPreviewMode = { previewMode = it },
+                isEquipped = previewSkin.id == activeSlotEquippedSkinId,
+                isUnlocked = isCurrentSkinUnlocked,
+                onEquipForActive = {
+                    onEquipSkinForSlot(activeSlot, previewSkin.id)
+                },
+                onEquipForAll = {
+                    onEquipSkinForAllSlots(previewSkin.id)
+                },
+                onUnlockAndEquip = {
+                    onUnlockSkin(previewSkin.id)
+                    onEquipSkinForSlot(activeSlot, previewSkin.id)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 4. Category Filter Tabs Row
+            CategoryFilterRow(
+                selectedCategory = selectedCategory,
+                onSelectCategory = { selectedCategory = it }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 5. Grid of Skins
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(minSize = 100.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)
+            ) {
+                items(filteredSkins, key = { it.id }) { skin ->
+                    val isSelected = skin.id == previewSkin.id
+                    val isEquipped = skin.id == activeSlotEquippedSkinId
+                    val isSkinUnlocked = unlockedSkinIds.contains(skin.id) || !skin.isLocked
+
+                    PawnSkinCard(
+                        skin = skin,
+                        playerColor = activePlayerColor,
+                        isSelected = isSelected,
+                        isEquipped = isEquipped,
+                        isUnlocked = isSkinUnlocked,
+                        onClick = {
+                            previewSkin = skin
+                        }
+                    )
+                }
+            }
+
+            // 6. Bottom Done Button (if in dialog mode)
+            if (onClose != null) {
+                Button(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = RadiantGold)
+                ) {
+                    Text(
+                        text = "تأیید و بازگشت به بازی",
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF140B24),
+                        fontSize = 15.sp
+                    )
                 }
             }
         }
@@ -264,6 +336,7 @@ fun PawnCollectionDialog(
 // -------------------------------------------------------------------------------------------------
 // PLAYER SLOT SELECTOR
 // -------------------------------------------------------------------------------------------------
+
 @Composable
 private fun PlayerSlotSelectorRow(
     playerCount: Int,
@@ -328,6 +401,7 @@ private fun PlayerSlotSelectorRow(
 // -------------------------------------------------------------------------------------------------
 // INTERACTIVE PAWN PREVIEW STAGE
 // -------------------------------------------------------------------------------------------------
+
 @Composable
 private fun PawnPreviewStage(
     skin: PawnSkin,
@@ -335,80 +409,103 @@ private fun PawnPreviewStage(
     previewMode: PawnPreviewMode,
     onSelectPreviewMode: (PawnPreviewMode) -> Unit,
     isEquipped: Boolean,
+    isUnlocked: Boolean,
     onEquipForActive: () -> Unit,
-    onEquipForAll: () -> Unit
+    onEquipForAll: () -> Unit,
+    onUnlockAndEquip: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MysticCardSurface.copy(alpha = 0.90f)),
-        border = CardDefaults.outlinedCardBorder().copy(
-            brush = Brush.horizontalGradient(
-                listOf(skin.primaryColor.copy(alpha = 0.65f), RadiantGold.copy(alpha = 0.45f))
-            )
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .border(1.5.dp, skin.primaryColor.copy(alpha = 0.5f), RoundedCornerShape(20.dp)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF131926).copy(alpha = 0.90f)
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Large Interactive Pawn Viewport
+                // Large 3D Animated Showcase Renderer
                 Box(
                     modifier = Modifier
-                        .size(115.dp)
+                        .size(105.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF090D16).copy(alpha = 0.75f))
-                        .border(1.dp, skin.glowColor.copy(alpha = 0.45f), RoundedCornerShape(16.dp)),
+                        .background(Color(0xFF090D16).copy(alpha = 0.85f))
+                        .border(1.5.dp, skin.glowColor.copy(alpha = 0.4f), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     PawnSkinRenderer(
                         skin = skin,
                         playerColor = playerColor,
-                        size = 105.dp,
                         previewMode = previewMode,
+                        size = 98.dp,
                         showPedestal = true,
                         showAura = true
                     )
                 }
 
-                // Skin Info & Equip CTA
+                // Skin Metadata & Equip Actions
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        Text(
+                            text = skin.ambientParticleEmoji,
+                            fontSize = 18.sp
+                        )
                         Text(
                             text = skin.namePersian,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Black,
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                    }
 
-                        // Category Badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(6.dp))
                                 .background(skin.primaryColor.copy(alpha = 0.25f))
+                                .border(1.dp, skin.primaryColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "${skin.category.emoji} ${skin.category.persianTitle}",
+                                text = skin.category.persianTitle,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = skin.glowColor,
                                 fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "کمیابی: ${skin.rarityTitle}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RadiantGold,
+                                fontWeight = FontWeight.Medium,
                                 fontSize = 10.sp
                             )
                         }
@@ -417,65 +514,124 @@ private fun PawnPreviewStage(
                     Text(
                         text = skin.descriptionPersian,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.85f),
+                        color = Color.White.copy(alpha = 0.70f),
+                        fontSize = 11.sp,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 11.sp
+                        overflow = TextOverflow.Ellipsis
                     )
 
-                    Text(
-                        text = "ردپا: ${skin.trailType.particleEmoji} ${skin.trailType.persianLabel} • متریال: ${skin.materialType.name}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = RadiantGold,
-                        fontSize = 10.sp
-                    )
+                    // Lock Status Notice if locked
+                    if (!isUnlocked) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFEF4444).copy(alpha = 0.20f))
+                                .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("🔒", fontSize = 11.sp)
+                            Text(
+                                text = if (skin.unlockConditionPersian.isNotEmpty()) skin.unlockConditionPersian else "پوسته قفل‌شده رویداد",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFFCA5A5),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-                    // Equip Buttons
+                    // Action Buttons (Equip / Unlock & Equip)
                     Row(
                         modifier = Modifier.padding(top = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Button(
-                            onClick = onEquipForActive,
-                            modifier = Modifier
-                                .weight(1.3f)
-                                .height(38.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isEquipped) HopefulEmerald else skin.primaryColor
-                            )
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        if (isUnlocked) {
+                            Button(
+                                onClick = onEquipForActive,
+                                enabled = !isEquipped,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isEquipped) HopefulEmerald else RadiantGold,
+                                    disabledContainerColor = HopefulEmerald.copy(alpha = 0.85f)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
                             ) {
-                                if (isEquipped) {
-                                    Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Text("تجهیز شده ✓", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-                                } else {
-                                    Text("تجهیز این مهره", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (isEquipped) {
+                                        Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                        Text("تجهیز شده", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    } else {
+                                        Text("تجهیز این مهره", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF140B24))
+                                    }
                                 }
                             }
-                        }
 
-                        OutlinedButton(
-                            onClick = onEquipForAll,
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Text("برای همه", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            OutlinedButton(
+                                onClick = onEquipForAll,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, RadiantGold.copy(alpha = 0.5f)),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Text("تجهیز برای همه", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = RadiantGold)
+                            }
+                        } else {
+                            // Instant Unlock & Equip or Try
+                            Button(
+                                onClick = onUnlockAndEquip,
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = RadiantGold),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Icon(Icons.Filled.LockOpen, contentDescription = null, tint = Color(0xFF140B24), modifier = Modifier.size(13.dp))
+                                    Text("بازگشایی و تجهیز", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF140B24))
+                                }
+                            }
+
+                            OutlinedButton(
+                                onClick = onEquipForActive,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                                contentPadding = PaddingValues(horizontal = 6.dp)
+                            ) {
+                                Text("تجهیز آزمایشی", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
                         }
                     }
                 }
             }
 
-            // Preview Stance Mode Chips (Idle, Trail, Landing, Victory)
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Animation Mode Selector Strip
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
                     text = "آزمون حالت:",
@@ -517,6 +673,7 @@ private fun PawnPreviewStage(
 // -------------------------------------------------------------------------------------------------
 // CATEGORY FILTER ROW
 // -------------------------------------------------------------------------------------------------
+
 @Composable
 private fun CategoryFilterRow(
     selectedCategory: PawnSkinCategory?,
@@ -536,7 +693,6 @@ private fun CategoryFilterRow(
                 onClick = { onSelectCategory(null) }
             )
         }
-
         items(PawnSkinCategory.entries) { cat ->
             val isSelected = selectedCategory == cat
             CategoryPill(
@@ -586,12 +742,14 @@ private fun CategoryPill(
 // -------------------------------------------------------------------------------------------------
 // PAWN SKIN GRID CARD
 // -------------------------------------------------------------------------------------------------
+
 @Composable
 private fun PawnSkinCard(
     skin: PawnSkin,
     playerColor: Color,
     isSelected: Boolean,
     isEquipped: Boolean,
+    isUnlocked: Boolean,
     onClick: () -> Unit
 ) {
     val borderColor by animateColorAsState(
@@ -644,6 +802,19 @@ private fun PawnSkinCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                    }
+                }
+
+                if (!isUnlocked) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .clip(CircleShape)
+                            .background(Color(0xD9EF4444))
+                            .size(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.Lock, contentDescription = "قفل", tint = Color.White, modifier = Modifier.size(10.dp))
                     }
                 }
             }

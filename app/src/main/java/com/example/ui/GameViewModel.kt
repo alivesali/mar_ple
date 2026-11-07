@@ -176,7 +176,8 @@ data class GameUiState(
     // Pawn Customization System:
     val playerPawnSkinIds: List<String> = List(8) { "classic_standard" },
     val isPawnCollectionOpen: Boolean = false,
-    val pawnCollectionActiveSlot: Int = 0
+    val pawnCollectionActiveSlot: Int = 0,
+    val unlockedPawnSkinIds: Set<String> = com.example.model.PawnSkinCatalog.defaultUnlockedSkinIds
 ) {
     val currentPlayer: Player?
         get() = players.getOrNull(currentTurnIndex)
@@ -918,6 +919,24 @@ class GameViewModel(
                 players = updatedPlayers
             )
         }
+    }
+
+    fun unlockPawnSkin(skinId: String) {
+        soundManager.playDiceTick(6)
+        _uiState.update { state ->
+            val updated = state.unlockedPawnSkinIds + skinId
+            prefs.edit().putStringSet("unlocked_pawn_skins", updated).apply()
+            state.copy(unlockedPawnSkinIds = updated)
+        }
+        showCardSaveFeedback("پوسته جدید با موفقیت بازگشایی شد! 🎉")
+    }
+
+    fun unlockAllPawnSkins() {
+        soundManager.playDiceTick(6)
+        val allIds = com.example.model.PawnSkinCatalog.allSkins.map { it.id }.toSet()
+        prefs.edit().putStringSet("unlocked_pawn_skins", allIds).apply()
+        _uiState.update { it.copy(unlockedPawnSkinIds = allIds) }
+        showCardSaveFeedback("تمام ۳۹ پوسته مهره بازگشایی شدند! 👑")
     }
 
     fun setAnimationSpeed(speed: AnimationSpeed) {
