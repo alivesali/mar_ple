@@ -131,6 +131,7 @@ fun SetupScreen(
     onToggleMusic: () -> Unit = {},
     onToggleAmbient: () -> Unit = {},
     onPlayHeroStanceSound: (String) -> Unit = {},
+    onOpenPawnCollection: (Int) -> Unit = {},
     onStartGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -973,6 +974,73 @@ fun SetupScreen(
                                         imageVector = Icons.Filled.Refresh,
                                         contentDescription = "نام پیش‌فرض قهرمان",
                                         tint = RadiantGold
+                                    )
+                                }
+                            }
+
+                            // Pawn Customization Button for this slot
+                            val slotSkinId = uiState.playerPawnSkinIds.getOrElse(activeSlot) { "classic_standard" }
+                            val slotPawnSkin = com.example.model.PawnSkinCatalog.getSkinById(slotSkinId)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFF0F172A).copy(alpha = 0.85f))
+                                    .border(1.dp, RadiantGold.copy(alpha = 0.40f), RoundedCornerShape(14.dp))
+                                    .clickable { onOpenPawnCollection(activeSlot) }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                                    .testTag("open_pawn_customization_slot_$activeSlot"),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    com.example.ui.components.PawnSkinRenderer(
+                                        skin = slotPawnSkin,
+                                        playerColor = activeSlotTokenColor,
+                                        size = 38.dp
+                                    )
+                                    Column {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Text(
+                                                text = slotPawnSkin.persianName,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.White
+                                            )
+                                            Text(
+                                                text = "• ${slotPawnSkin.category.persianTitle}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = RadiantGold
+                                            )
+                                        }
+                                        Text(
+                                            text = "پوسته اختصاصی مهره روی صفحه بازی",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Color.White.copy(alpha = 0.65f)
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                    onClick = { onOpenPawnCollection(activeSlot) },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = RadiantGold,
+                                        contentColor = Color(0xFF140B02)
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text(
+                                        text = "تغییر مهره ♟️",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.ExtraBold
                                     )
                                 }
                             }

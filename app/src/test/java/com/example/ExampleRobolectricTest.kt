@@ -358,6 +358,80 @@ class ExampleRobolectricTest {
         assertEquals(com.example.model.CombatOutcomeType.ANCHOR_IMMUNE, lastLog.outcomeType)
         assertTrue(lastLog.description.contains("لنگر"))
     }
+
+    @Test
+    fun `pawn skin catalog contains all 8 required categories and 32 rich original skins`() {
+        val categories = com.example.model.PawnSkinCategory.entries
+        assertEquals(8, categories.size)
+
+        val allSkins = com.example.model.PawnSkinCatalog.allSkins
+        assertEquals(32, allSkins.size)
+
+        categories.forEach { cat ->
+            val skinsInCat = com.example.model.PawnSkinCatalog.getSkinsByCategory(cat)
+            assertEquals(4, skinsInCat.size)
+            skinsInCat.forEach { skin ->
+                assertTrue(skin.id.isNotBlank())
+                assertTrue(skin.persianName.isNotBlank())
+                assertTrue(skin.englishName.isNotBlank())
+                assertNotNull(skin.primaryColor)
+            }
+        }
+    }
+
+    @Test
+    fun `equipping custom pawn skin updates slot state and active in-game players independently from hero choice`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val viewModel = GameViewModel(context)
+        viewModel.selectCharacterForSlot(0, "blade") // Executioner
+        viewModel.selectCharacterForSlot(1, "jack")  // Guardian
+
+        // Equip luxury gold skin for slot 0 and elemental fire for slot 1
+        viewModel.equipPawnSkinForSlot(0, "luxury_pure_gold")
+        viewModel.equipPawnSkinForSlot(1, "elemental_living_flame")
+
+        assertEquals("luxury_pure_gold", viewModel.uiState.value.playerPawnSkinIds[0])
+        assertEquals("elemental_living_flame", viewModel.uiState.value.playerPawnSkinIds[1])
+
+        viewModel.startGame()
+
+        val player0 = viewModel.uiState.value.players.first { it.id == 0 }
+        val player1 = viewModel.uiState.value.players.first { it.id == 1 }
+
+        // Pawn skin resolved correctly
+        assertEquals("luxury_pure_gold", player0.customPawnSkinId)
+        assertEquals("طلای ناب سلطنتی", player0.pawnSkin.persianName)
+        assertEquals(com.example.model.PawnSkinCategory.LUXURY, player0.pawnSkin.category)
+
+        assertEquals("elemental_living_flame", player1.customPawnSkinId)
+        assertEquals("شعله جاویدان آتش", player1.pawnSkin.persianName)
+        assertEquals(com.example.model.PawnSkinCategory.ELEMENTAL, player1.pawnSkin.category)
+
+        // Equipping during match dynamically updates player's pawn immediately
+        viewModel.equipPawnSkinForSlot(0, "fantasy_magic_orb")
+        val updatedP0 = viewModel.uiState.value.players.first { it.id == 0 }
+        assertEquals("fantasy_magic_orb", updatedP0.customPawnSkinId)
+        assertEquals("گوی اسرارآمیز ارکان", updatedP0.pawnSkin.persianName)
+    }
+
+    @Test
+    fun `equipping pawn skin for all players updates all active player pawns simultaneously`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val viewModel = GameViewModel(context)
+        viewModel.setPlayerCount(3)
+        viewModel.startGame()
+
+        viewModel.equipPawnSkinForAll("special_cosmic_nebula")
+
+        viewModel.uiState.value.playerPawnSkinIds.forEach { skinId ->
+            assertEquals("special_cosmic_nebula", skinId)
+        }
+
+        viewModel.uiState.value.players.forEach { player ->
+            assertEquals("special_cosmic_nebula", player.customPawnSkinId)
+            assertEquals("سحابی کیهانی ژرف", player.pawnSkin.persianName)
+        }
+    }
 }
 
 

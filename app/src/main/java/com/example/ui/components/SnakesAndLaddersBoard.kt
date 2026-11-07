@@ -2711,40 +2711,15 @@ private fun DrawScope.drawThreeDimensionalPawnToken(
     )
 
     val bodyCenter = Offset(center.x, center.y - r * 0.10f)
-    val darkShade = Color(
-        red = (player.color.red * 0.38f).coerceIn(0f, 1f),
-        green = (player.color.green * 0.38f).coerceIn(0f, 1f),
-        blue = (player.color.blue * 0.38f).coerceIn(0f, 1f),
-        alpha = 1f
-    )
-    val brightHighlight = Color(
-        red = (player.color.red + (1f - player.color.red) * 0.65f).coerceIn(0f, 1f),
-        green = (player.color.green + (1f - player.color.green) * 0.65f).coerceIn(0f, 1f),
-        blue = (player.color.blue + (1f - player.color.blue) * 0.65f).coerceIn(0f, 1f),
-        alpha = 1f
-    )
 
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(brightHighlight, player.color, darkShade),
-            center = Offset(bodyCenter.x - r * 0.32f, bodyCenter.y - r * 0.35f),
-            radius = r * 1.35f
-        ),
-        radius = r * 0.88f,
-        center = bodyCenter
-    )
-
-    drawCircle(
-        color = RadiantGold.copy(alpha = 0.8f),
-        radius = r * 0.88f,
+    // Render the active custom pawn skin geometry with materials, 3D highlights & player.color base
+    drawPawnSkinGeometry(
         center = bodyCenter,
-        style = Stroke(width = 1.7f)
-    )
-
-    drawCircle(
-        color = Color.White.copy(alpha = 0.82f),
-        radius = r * 0.28f,
-        center = Offset(bodyCenter.x - r * 0.28f, bodyCenter.y - r * 0.30f)
+        radius = r * 0.95f,
+        skin = player.pawnSkin,
+        playerColor = player.color,
+        rotationDeg = shimmerPhase * 360f,
+        energyPulse = pulseScale
     )
 
     if (namePaint != null) {

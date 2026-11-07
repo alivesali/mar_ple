@@ -186,8 +186,12 @@ data class Player(
     val illusionDecoyTile: Int? = null,
     val illusionTurnsRemaining: Int = 0,
     val gravityCapNextRoll: Boolean = false,
+    val customPawnSkinId: String = "classic_standard",
     val pinnedSlowSteps: Int = 0
 ) {
+    val pawnSkin: PawnSkin
+        get() = PawnSkinCatalog.getSkinById(customPawnSkinId)
+
     val color: Color
         get() = PlayerTokenColors[colorIndex % PlayerTokenColors.size]
 

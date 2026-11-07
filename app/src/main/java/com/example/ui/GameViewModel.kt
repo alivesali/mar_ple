@@ -172,7 +172,11 @@ data class GameUiState(
     val shieldHuntDefensePercent: Int = 75,
     // Hero Interaction & Combat System State:
     val combatLogs: List<CombatLogEntry> = emptyList(),
-    val isCombatLogOpen: Boolean = false
+    val isCombatLogOpen: Boolean = false,
+    // Pawn Customization System:
+    val playerPawnSkinIds: List<String> = List(8) { "classic_standard" },
+    val isPawnCollectionOpen: Boolean = false,
+    val pawnCollectionActiveSlot: Int = 0
 ) {
     val currentPlayer: Player?
         get() = players.getOrNull(currentTurnIndex)
@@ -861,6 +865,61 @@ class GameViewModel(
         showCardSaveFeedback("تاریخچه نبردهای بازی پاک‌سازی شد! 🧹")
     }
 
+    // Pawn Customization System Methods:
+    fun openPawnCollection(slot: Int = 0) {
+        soundManager.playDiceTick(4)
+        _uiState.update {
+            val safeSlot = slot.coerceIn(0, (it.playerCount - 1).coerceAtLeast(0))
+            it.copy(
+                isPawnCollectionOpen = true,
+                pawnCollectionActiveSlot = safeSlot
+            )
+        }
+    }
+
+    fun closePawnCollection() {
+        soundManager.playDiceTick(1)
+        _uiState.update { it.copy(isPawnCollectionOpen = false) }
+    }
+
+    fun equipPawnSkinForSlot(slot: Int, skinId: String) {
+        soundManager.playDiceTick(5)
+        _uiState.update { state ->
+            val updatedSkinIds = state.playerPawnSkinIds.toMutableList()
+            while (updatedSkinIds.size <= slot) {
+                updatedSkinIds.add("classic_standard")
+            }
+            updatedSkinIds[slot] = skinId
+
+            val updatedPlayers = state.players.map { player ->
+                if (player.id == slot) {
+                    player.copy(customPawnSkinId = skinId)
+                } else {
+                    player
+                }
+            }
+
+            state.copy(
+                playerPawnSkinIds = updatedSkinIds,
+                players = updatedPlayers
+            )
+        }
+    }
+
+    fun equipPawnSkinForAll(skinId: String) {
+        soundManager.playDiceTick(6)
+        _uiState.update { state ->
+            val updatedSkinIds = List(8) { skinId }
+            val updatedPlayers = state.players.map { player ->
+                player.copy(customPawnSkinId = skinId)
+            }
+            state.copy(
+                playerPawnSkinIds = updatedSkinIds,
+                players = updatedPlayers
+            )
+        }
+    }
+
     fun setAnimationSpeed(speed: AnimationSpeed) {
         prefs.edit().putString("animation_speed", speed.name).apply()
         soundManager.playDiceTick(speed.ordinal + 3)
@@ -1328,6 +1387,7 @@ class GameViewModel(
             val character = current.resolveCharacterById(charId)
             val rawName = current.playerNamesInput.getOrNull(idx)?.trim().orEmpty()
             val finalName = rawName.ifEmpty { character.defaultEnglishName }
+            val skinId = current.playerPawnSkinIds.getOrElse(idx) { "classic_standard" }
             Player(
                 id = idx,
                 name = finalName,
@@ -1337,7 +1397,8 @@ class GameViewModel(
                 isAiBot = false,
                 currentTile = 1,
                 abilityChargeProgress = character.abilityType.cooldownTurns.coerceAtLeast(3),
-                isShieldCharged = (character.abilityType == CharacterAbilityType.GUARDIAN_SHIELD)
+                isShieldCharged = (character.abilityType == CharacterAbilityType.GUARDIAN_SHIELD),
+                customPawnSkinId = skinId
             )
         }
 
@@ -1352,6 +1413,7 @@ class GameViewModel(
             } ?: aiCandidates.first()
 
             val aiShortLevel = current.aiDifficulty.persianTitle.substringBefore(" ")
+            val aiSkinId = current.playerPawnSkinIds.getOrElse(1) { "fantasy_plasma" }
             val aiBot = Player(
                 id = 1,
                 name = "🤖 ربات ($aiShortLevel)",
@@ -1361,7 +1423,8 @@ class GameViewModel(
                 isAiBot = true,
                 currentTile = 1,
                 abilityChargeProgress = aiCharacter.abilityType.cooldownTurns.coerceAtLeast(3),
-                isShieldCharged = (aiCharacter.abilityType == CharacterAbilityType.GUARDIAN_SHIELD)
+                isShieldCharged = (aiCharacter.abilityType == CharacterAbilityType.GUARDIAN_SHIELD),
+                customPawnSkinId = aiSkinId
             )
             listOf(humanPlayers.first(), aiBot)
         } else {

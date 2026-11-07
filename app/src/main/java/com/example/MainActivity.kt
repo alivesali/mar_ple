@@ -123,6 +123,7 @@ fun MysticSnakesAndLaddersApp() {
                         onSelectAiDifficulty = gameViewModel::setAiDifficulty,
                         onOpenAdvancedSettings = gameViewModel::openAdvancedSettings,
                         onOpenCardManager = gameViewModel::openCardManager,
+                        onOpenPawnCollection = gameViewModel::openPawnCollection,
                         onToggleSound = gameViewModel::toggleSound,
                         onToggleMusic = gameViewModel::toggleMusic,
                         onToggleAmbient = gameViewModel::toggleAmbient,
@@ -148,6 +149,9 @@ fun MysticSnakesAndLaddersApp() {
                         },
                         onOpenCardManager = gameViewModel::openCardManager,
                         onOpenCombatLog = gameViewModel::openCombatLogModal,
+                        onOpenPawnCollection = {
+                            gameViewModel.openPawnCollection(uiState.currentPlayer?.id ?: 0)
+                        },
                         onFlipRevealSnakeCard = gameViewModel::flipRevealSnakeCard,
                         onCompleteSnakeCardChallenge = gameViewModel::completeSnakeCardChallenge,
                         onRestartGame = gameViewModel::restartCurrentMatch,
@@ -158,6 +162,24 @@ fun MysticSnakesAndLaddersApp() {
                         onBackToSetup = gameViewModel::returnToSetup
                     )
                 }
+            }
+
+            // Pawn Customization & Showcase Dialog
+            if (uiState.isPawnCollectionOpen) {
+                com.example.ui.components.PawnCollectionDialog(
+                    currentEquippedSkinId = uiState.playerPawnSkinIds.getOrElse(uiState.pawnCollectionActiveSlot) { "classic_standard" },
+                    playerPawnSkinIds = uiState.playerPawnSkinIds,
+                    playerCount = uiState.playerCount,
+                    initialPlayerSlot = uiState.pawnCollectionActiveSlot,
+                    playerColorIndices = if (uiState.phase == GamePhase.SETUP) {
+                        List(uiState.playerCount) { it }
+                    } else {
+                        uiState.players.map { it.colorIndex }
+                    },
+                    onEquipSkinForSlot = gameViewModel::equipPawnSkinForSlot,
+                    onEquipSkinForAllSlots = gameViewModel::equipPawnSkinForAll,
+                    onDismissRequest = gameViewModel::closePawnCollection
+                )
             }
 
             // Hero Combat & Interaction Log Modal

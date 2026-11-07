@@ -47,6 +47,7 @@ fun readableTokenTextColor(tokenColor: Color): Color {
 @Composable
 fun PlayerPawnTokenIcon(
     tokenColor: Color,
+    skin: com.example.model.PawnSkin? = null,
     isTurnActive: Boolean = true,
     size: Dp = 18.dp,
     modifier: Modifier = Modifier
@@ -83,44 +84,56 @@ fun PlayerPawnTokenIcon(
             size = Size(r * 1.84f, r * 0.66f)
         )
 
-        // 3D Spherical Pawn Body in exact player.color
         val bodyCenter = Offset(center.x, center.y - r * 0.12f)
-        val darkShade = Color(
-            red = (tokenColor.red * 0.36f).coerceIn(0f, 1f),
-            green = (tokenColor.green * 0.36f).coerceIn(0f, 1f),
-            blue = (tokenColor.blue * 0.36f).coerceIn(0f, 1f),
-            alpha = 1f
-        )
-        val brightHighlight = Color(
-            red = (tokenColor.red + (1f - tokenColor.red) * 0.65f).coerceIn(0f, 1f),
-            green = (tokenColor.green + (1f - tokenColor.green) * 0.65f).coerceIn(0f, 1f),
-            blue = (tokenColor.blue + (1f - tokenColor.blue) * 0.65f).coerceIn(0f, 1f),
-            alpha = 1f
-        )
 
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(brightHighlight, tokenColor, darkShade),
-                center = Offset(bodyCenter.x - r * 0.30f, bodyCenter.y - r * 0.32f),
-                radius = r * 1.32f
-            ),
-            radius = r * 0.88f,
-            center = bodyCenter
-        )
+        if (skin != null) {
+            drawPawnSkinGeometry(
+                center = bodyCenter,
+                radius = r * 0.95f,
+                skin = skin,
+                playerColor = tokenColor,
+                rotationDeg = 0f,
+                energyPulse = 1f
+            )
+        } else {
+            // 3D Spherical Pawn Body in exact player.color
+            val darkShade = Color(
+                red = (tokenColor.red * 0.36f).coerceIn(0f, 1f),
+                green = (tokenColor.green * 0.36f).coerceIn(0f, 1f),
+                blue = (tokenColor.blue * 0.36f).coerceIn(0f, 1f),
+                alpha = 1f
+            )
+            val brightHighlight = Color(
+                red = (tokenColor.red + (1f - tokenColor.red) * 0.65f).coerceIn(0f, 1f),
+                green = (tokenColor.green + (1f - tokenColor.green) * 0.65f).coerceIn(0f, 1f),
+                blue = (tokenColor.blue + (1f - tokenColor.blue) * 0.65f).coerceIn(0f, 1f),
+                alpha = 1f
+            )
 
-        drawCircle(
-            color = if (isTurnActive) RadiantGold else RadiantGold.copy(alpha = 0.55f),
-            radius = r * 0.88f,
-            center = bodyCenter,
-            style = Stroke(width = (w * 0.065f).coerceAtLeast(1f))
-        )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(brightHighlight, tokenColor, darkShade),
+                    center = Offset(bodyCenter.x - r * 0.30f, bodyCenter.y - r * 0.32f),
+                    radius = r * 1.32f
+                ),
+                radius = r * 0.88f,
+                center = bodyCenter
+            )
 
-        // Specular highlight dot
-        drawCircle(
-            color = Color.White.copy(alpha = 0.85f),
-            radius = r * 0.26f,
-            center = Offset(bodyCenter.x - r * 0.26f, bodyCenter.y - r * 0.28f)
-        )
+            drawCircle(
+                color = if (isTurnActive) RadiantGold else RadiantGold.copy(alpha = 0.55f),
+                radius = r * 0.88f,
+                center = bodyCenter,
+                style = Stroke(width = (w * 0.065f).coerceAtLeast(1f))
+            )
+
+            // Specular highlight dot
+            drawCircle(
+                color = Color.White.copy(alpha = 0.85f),
+                radius = r * 0.26f,
+                center = Offset(bodyCenter.x - r * 0.26f, bodyCenter.y - r * 0.28f)
+            )
+        }
     }
 }
 

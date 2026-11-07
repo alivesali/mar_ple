@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Group
@@ -126,6 +127,7 @@ fun GamePlayScreen(
     onOpenStudioSettings: () -> Unit = onOpenAdvancedSettings,
     onOpenCardManager: () -> Unit,
     onOpenCombatLog: () -> Unit = {},
+    onOpenPawnCollection: () -> Unit = {},
     onFlipRevealSnakeCard: () -> Unit,
     onCompleteSnakeCardChallenge: () -> Unit,
     onRestartGame: () -> Unit,
@@ -306,6 +308,11 @@ fun GamePlayScreen(
                                 isThemeSwitcherExpanded = false
                                 onOpenCombatLog()
                             },
+                            onOpenPawnCollection = {
+                                isTopMenuExpanded = false
+                                isThemeSwitcherExpanded = false
+                                onOpenPawnCollection()
+                            },
                             onInspectHero = { inspectingHero = it },
                             onRestartGame = {
                                 isTopMenuExpanded = false
@@ -448,6 +455,11 @@ fun GamePlayScreen(
                             isTopMenuExpanded = false
                             isThemeSwitcherExpanded = false
                             onOpenCombatLog()
+                        },
+                        onOpenPawnCollection = {
+                            isTopMenuExpanded = false
+                            isThemeSwitcherExpanded = false
+                            onOpenPawnCollection()
                         },
                         onInspectHero = { inspectingHero = it },
                         onRestartGame = {
@@ -652,6 +664,7 @@ private fun UnifiedTopHeaderWithCollapsibleMenu(
     onOpenStudioSettings: () -> Unit,
     onOpenCardManager: () -> Unit,
     onOpenCombatLog: () -> Unit = {},
+    onOpenPawnCollection: () -> Unit = {},
     onInspectHero: (GameCharacter) -> Unit = {},
     onRestartGame: () -> Unit,
     onRegenerateBoard: () -> Unit,
@@ -809,6 +822,20 @@ private fun UnifiedTopHeaderWithCollapsibleMenu(
                         borderColor = RadiantGold.copy(alpha = 0.75f),
                         onClick = onOpenStudioSettings,
                         testTag = "game_open_studio_button"
+                    )
+                }
+
+                // Option 2.5: Pawn Customization Studio (مهره‌ها)
+                item {
+                    CollapsibleMenuRoundActionButton(
+                        icon = Icons.Filled.Category,
+                        label = "مهره‌ها",
+                        contentDescription = "استودیو شخصی‌سازی مهره‌های بازی",
+                        tint = RadiantGold,
+                        containerColor = Color(0xFF1C160D),
+                        borderColor = RadiantGold.copy(alpha = 0.75f),
+                        onClick = onOpenPawnCollection,
+                        testTag = "game_open_pawn_collection_button"
                     )
                 }
 
@@ -1382,6 +1409,7 @@ private fun PlayersStatusStrip(
                     ) {
                         PlayerPawnTokenIcon(
                             tokenColor = tokenColor,
+                            skin = player.pawnSkin,
                             isTurnActive = isTurn,
                             size = 8.dp
                         )
@@ -1617,6 +1645,7 @@ private fun EventFeedbackBanner(
                     ) {
                         PlayerPawnTokenIcon(
                             tokenColor = tokenCol,
+                            skin = activePlayer.pawnSkin,
                             isTurnActive = true,
                             size = 12.dp
                         )

@@ -254,6 +254,7 @@ fun DiceAndTurnPanel(
                             ) {
                                 PlayerPawnTokenIcon(
                                     tokenColor = currentPlayer.color,
+                                    skin = currentPlayer.pawnSkin,
                                     isTurnActive = true,
                                     size = 11.dp
                                 )
