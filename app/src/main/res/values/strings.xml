@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">مار و پله اسرار</string>
+    <string name="app_subtitle">نسخه سه‌بعدی با ۱۶ قهرمان افسانه‌ای و موانع اسرارآمیز • ۱ تا ۸ بازیکن</string>
+    <string name="select_players_title">تعداد بازیکنان را انتخاب کنید</string>
+    <string name="select_difficulty_title">سطح سختی بازی</string>
+    <string name="obstacles_control_title">موانع خاص صفحه بازی (قابل انتخاب)</string>
+    <string name="players_names_title">انتخاب قهرمان و شخصی‌سازی نام بازیکنان</string>
+    <string name="character_roster_title">کارت قهرمانان (۱۶ شخصیت منحصربه‌فرد)</string>
+    <string name="character_roster_subtitle">برای بازیکن انتخاب‌شده یک قهرمان برگزینید • برای مشاهده جزئیات کامل قابلیت، روی دکمه «توضیحات کامل» بزنید</string>
+    <string name="player_default_name">بازیکن %1$s</string>
+    <string name="player_name_hint">نام دلخواه بازیکن یا قهرمان</string>
+    <string name="start_game_button">شروع بازی هیجان‌انگیز!</string>
+    <string name="roll_dice_button">پرتاب تاس</string>
+    <string name="rolling_dice_text">در حال چرخش تاس...</string>
+    <string name="moving_token_text">در حال حرکت...</string>
+    <string name="current_turn_label">نوبت بازی:</string>
+    <string name="leader_label">پیشتاز میدان:</string>
+    <string name="tile_prefix">خانه %1$s</string>
+    <string name="restart_game">شروع مجدد</string>
+    <string name="new_setup">تغییر بازیکنان و قهرمانان</string>
+    <string name="regenerate_board">چیدمان جدید مار، پله و موانع</string>
+    <string name="sound_on">صدا فعال</string>
+    <string name="sound_off">صدا قطع</string>
+    <string name="six_bonus_banner">شیش آوردی! ✨ یک پرتاب جایزه داری!</string>
+    <string name="ladder_climb_banner">ایول! از پله بالا رفتی تا خانه %1$s! 🚀</string>
+    <string name="snake_bite_banner">آخ! نیش مار! سقوط به خانه %1$s 🐍</string>
+    <string name="exact_roll_needed">برای رسیدن به خانه ۱۰۰ باید دقیقاً %1$s بیاوری!</string>
+    <string name="winner_title">قهرمان مار و پله‌ی اسرار!</string>
+    <string name="winner_subtitle">%1$s با موفقیت به خانه ۱۰۰ رسید و برنده شد!</string>
+    <string name="play_again_same_players">بازی مجدد با همین جمع</string>
+    <string name="back_to_lobby">بازگشت به صفحه شروع</string>
+    <string name="board_legend_ladders">%1$s پله</string>
+    <string name="board_legend_snakes">%1$s مار</string>
+    <string name="board_legend_obstacles">%1$s مانع خاص</string>
+</resources>
