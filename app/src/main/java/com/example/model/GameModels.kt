@@ -187,8 +187,15 @@ data class Player(
     val illusionTurnsRemaining: Int = 0,
     val gravityCapNextRoll: Boolean = false,
     val customPawnSkinId: String = "classic_standard",
-    val pinnedSlowSteps: Int = 0
+    val pinnedSlowSteps: Int = 0,
+    // Phase 1 Infrastructure - Robust Resources and Team Support:
+    val teamId: String? = null,
+    val resources: com.example.model.resource.PlayerResources = com.example.model.resource.PlayerResources()
 ) {
+    val hp: Int get() = resources.hp
+    val mana: Int get() = resources.mana
+    val shield: Int get() = resources.shield
+
     val pawnSkin: PawnSkin
         get() = PawnSkinCatalog.getSkinById(customPawnSkinId)
 

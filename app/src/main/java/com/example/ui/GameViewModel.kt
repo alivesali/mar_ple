@@ -41,6 +41,19 @@ import com.example.model.ShieldThreatCategory
 import com.example.model.SnakeVisualTheme
 import com.example.model.TruthOrDareCard
 import com.example.model.toPersianDigits
+import com.example.engine.AbilityActivationResult
+import com.example.engine.BoardObstacleEngine
+import com.example.engine.CombatResolutionEngine
+import com.example.engine.HeroAbilityEngine
+import com.example.engine.MatchResolutionEngine
+import com.example.engine.TurnAndMovementEngine
+import com.example.model.resource.ActiveStatusEffect
+import com.example.model.resource.PlayerResources
+import com.example.model.resource.ResourceConfig
+import com.example.model.resource.StatusEffectType
+import com.example.model.team.GameTeam
+import com.example.model.team.TeamManager
+import com.example.model.team.TeamMode
 import com.example.sound.GameSoundManager
 import com.example.sound.soundscapeInfo
 import com.example.ui.components.AdvancedSettingsTab
@@ -183,7 +196,10 @@ data class GameUiState(
     val inGameHeroInfoPlayerId: Int? = null,
     val activeHeroClash: com.example.model.HeroClashEvent? = null,
     val isHeroCollectionOpen: Boolean = false,
-    val heroCollectionActiveSlot: Int = 0
+    val heroCollectionActiveSlot: Int = 0,
+    // Phase 1 Architecture: Team Infrastructure:
+    val teamMode: TeamMode = TeamMode.SOLO_FREE_FOR_ALL,
+    val isTeamModeEnabled: Boolean = false
 ) {
     val currentPlayer: Player?
         get() = players.getOrNull(currentTurnIndex)
@@ -227,6 +243,15 @@ class GameViewModel(
     private var pendingSnakeCardCompletion: CompletableDeferred<Unit>? = null
     private var feedbackClearJob: Job? = null
     private var aiTurnJob: Job? = null
+
+    // Phase 1 Architecture: Modular Domain Engines
+    val turnMovementEngine = TurnAndMovementEngine()
+    val obstacleEngine = BoardObstacleEngine()
+    val heroAbilityEngine = HeroAbilityEngine()
+    val combatResolutionEngine = CombatResolutionEngine()
+    val matchResolutionEngine = MatchResolutionEngine()
+    var teamManager: TeamManager = TeamManager.createDefaultTeams(2, TeamMode.SOLO_FREE_FOR_ALL)
+        private set
 
     init {
         viewModelScope.launch {
@@ -1255,6 +1280,7 @@ class GameViewModel(
         val clamped = count.coerceIn(1, 8)
         prefs.edit().putInt("player_count", clamped).apply()
         soundManager.playDiceTick(clamped)
+        teamManager = TeamManager.createDefaultTeams(clamped, _uiState.value.teamMode)
         _uiState.update {
             it.copy(
                 playerCount = clamped,
@@ -1328,6 +1354,84 @@ class GameViewModel(
         val charId = state.playerCharacterIds[index]
         val defaultName = state.resolveCharacterById(charId).defaultEnglishName
         updatePlayerName(index, defaultName)
+    }
+
+    // Phase 1 Architecture: Team Infrastructure & Resource Management
+    fun setTeamMode(mode: TeamMode) {
+        soundManager.playDiceTick(3)
+        teamManager = TeamManager.createDefaultTeams(_uiState.value.playerCount, mode)
+        _uiState.update {
+            it.copy(
+                teamMode = mode,
+                isTeamModeEnabled = mode != TeamMode.SOLO_FREE_FOR_ALL
+            )
+        }
+        showCardSaveFeedback("حالت تیم‌ها به «${mode.persianTitle}» تغییر کرد! 🛡️")
+    }
+
+    fun assignPlayerToTeam(playerId: Int, teamId: String) {
+        teamManager.assignPlayerToTeam(playerId, teamId)
+        _uiState.update { st ->
+            val updated = st.players.map { if (it.id == playerId) it.copy(teamId = teamId) else it }
+            st.copy(players = updated)
+        }
+    }
+
+    fun getPlayerResources(playerId: Int): PlayerResources {
+        return _uiState.value.players.find { it.id == playerId }?.resources ?: PlayerResources()
+    }
+
+    fun damagePlayer(playerId: Int, amount: Int): Int {
+        var actualHpDamage = 0
+        _uiState.update { st ->
+            val updated = st.players.map { p ->
+                if (p.id == playerId) {
+                    val (res, dmg) = p.resources.takeDamage(amount)
+                    actualHpDamage = dmg
+                    p.copy(resources = res)
+                } else p
+            }
+            st.copy(players = updated)
+        }
+        return actualHpDamage
+    }
+
+    fun healPlayer(playerId: Int, amount: Int) {
+        _uiState.update { st ->
+            val updated = st.players.map { p ->
+                if (p.id == playerId) p.copy(resources = p.resources.heal(amount)) else p
+            }
+            st.copy(players = updated)
+        }
+    }
+
+    fun restorePlayerMana(playerId: Int, amount: Int) {
+        _uiState.update { st ->
+            val updated = st.players.map { p ->
+                if (p.id == playerId) p.copy(resources = p.resources.restoreMana(amount)) else p
+            }
+            st.copy(players = updated)
+        }
+    }
+
+    fun castActiveAbility(playerId: Int): AbilityActivationResult {
+        val player = _uiState.value.players.find { it.id == playerId }
+            ?: return AbilityActivationResult.Failure("بازیکن یافت نشد.")
+
+        val result = heroAbilityEngine.activateAbility(player)
+        if (result is AbilityActivationResult.Success) {
+            _uiState.update { st ->
+                val updated = st.players.map { if (it.id == playerId) result.updatedPlayer else it }
+                st.copy(
+                    players = updated,
+                    eventBanner = GameEventBanner(
+                        message = result.message,
+                        type = BannerType.CHARACTER_ABILITY
+                    )
+                )
+            }
+        }
+        return result
     }
 
     fun setDifficulty(difficulty: DifficultyLevel) {
