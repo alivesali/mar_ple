@@ -128,6 +128,9 @@ fun GamePlayScreen(
     onOpenCardManager: () -> Unit,
     onOpenCombatLog: () -> Unit = {},
     onOpenPawnCollection: () -> Unit = {},
+    onOpenHeroCollection: () -> Unit = {},
+    onOpenHeroInfo: (Int) -> Unit = {},
+    onRequestAbilityActivation: (Int) -> Unit = { onActivateAbility() },
     onFlipRevealSnakeCard: () -> Unit,
     onCompleteSnakeCardChallenge: () -> Unit,
     onRestartGame: () -> Unit,
@@ -395,7 +398,10 @@ fun GamePlayScreen(
                                 isThemeSwitcherExpanded = false
                                 onRollDice()
                             },
-                            onActivateAbility = onActivateAbility,
+                            onActivateAbility = {
+                                onRequestAbilityActivation(uiState.currentPlayer?.id ?: 0)
+                            },
+                            onOpenHeroInfo = onOpenHeroInfo,
                             onSelectPrecisionOption = onSelectPrecisionOption
                         )
                     }
@@ -591,7 +597,10 @@ fun GamePlayScreen(
                             isThemeSwitcherExpanded = false
                             onRollDice()
                         },
-                        onActivateAbility = onActivateAbility,
+                        onActivateAbility = {
+                            onRequestAbilityActivation(uiState.currentPlayer?.id ?: 0)
+                        },
+                        onOpenHeroInfo = onOpenHeroInfo,
                         onSelectPrecisionOption = onSelectPrecisionOption
                     )
                 }

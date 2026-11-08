@@ -444,4 +444,86 @@ class ExampleRobolectricTest {
         viewModel.unlockAllPawnSkins()
         assertEquals(39, viewModel.uiState.value.unlockedPawnSkinIds.size)
     }
+
+    @Test
+    fun `hero and pawn custom selections persist independently per player slot across matches`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val viewModel = GameViewModel(context)
+        viewModel.setPlayerCount(3)
+
+        // Select distinct hero and pawn skin for slot 0
+        viewModel.selectCharacterForSlot(0, "nova")
+        viewModel.equipPawnSkinForSlot(0, "luxury_gold")
+
+        // Select distinct hero and pawn skin for slot 1
+        viewModel.selectCharacterForSlot(1, "atlas")
+        viewModel.equipPawnSkinForSlot(1, "fantasy_magic_orb")
+
+        viewModel.startGame()
+
+        val p0 = viewModel.uiState.value.players[0]
+        val p1 = viewModel.uiState.value.players[1]
+
+        assertEquals("nova", p0.character.id)
+        assertEquals("luxury_gold", p0.customPawnSkinId)
+
+        assertEquals("atlas", p1.character.id)
+        assertEquals("fantasy_magic_orb", p1.customPawnSkinId)
+
+        // Restart and verify selections persist
+        val newVm = GameViewModel(context)
+        assertEquals("nova", newVm.uiState.value.playerCharacterIds[0])
+        assertEquals("luxury_gold", newVm.uiState.value.playerPawnSkinIds[0])
+        assertEquals("atlas", newVm.uiState.value.playerCharacterIds[1])
+        assertEquals("fantasy_magic_orb", newVm.uiState.value.playerPawnSkinIds[1])
+    }
+
+    @Test
+    fun `in-game hero info and ability confirmation modal flows work seamlessly`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val viewModel = GameViewModel(context)
+        viewModel.setPlayerCount(2)
+        viewModel.startGame()
+
+        // In-Game Hero Info modal open & close
+        viewModel.openInGameHeroInfo(0)
+        assertEquals(0, viewModel.uiState.value.inGameHeroInfoPlayerId)
+        viewModel.closeInGameHeroInfo()
+        assertNull(viewModel.uiState.value.inGameHeroInfoPlayerId)
+
+        // Ability confirmation flow
+        viewModel.requestAbilityActivation(0)
+        assertEquals(0, viewModel.uiState.value.pendingAbilityConfirmationPlayerId)
+        viewModel.cancelAbilityActivation()
+        assertNull(viewModel.uiState.value.pendingAbilityConfirmationPlayerId)
+
+        // Hero Collection dialog open & close
+        viewModel.openHeroCollection(1)
+        assertTrue(viewModel.uiState.value.isHeroCollectionOpen)
+        assertEquals(1, viewModel.uiState.value.heroCollectionActiveSlot)
+        viewModel.closeHeroCollection()
+        assertFalse(viewModel.uiState.value.isHeroCollectionOpen)
+
+        // Hero Clash event dismissal
+        val p0 = viewModel.uiState.value.players[0]
+        val p1 = viewModel.uiState.value.players[1]
+        val clash = com.example.model.HeroClashEvent(
+            attackerId = p0.id,
+            attackerName = p0.name,
+            attackerCharacter = p0.character,
+            defenderId = p1.id,
+            defenderName = p1.name,
+            defenderCharacter = p1.character,
+            abilityName = "تیر نشانه‌گیر",
+            tile = 15,
+            outcomeType = com.example.model.CombatOutcomeType.ATTACK_HIT,
+            defenseStatusDescription = "دفاع پایه",
+            resultMessage = "ضربه مستقیم وارد شد",
+            attackRoll = 6,
+            defenseRoll = 2,
+            knockbackSteps = 2
+        )
+        viewModel.dismissHeroClash()
+        assertNull(viewModel.uiState.value.activeHeroClash)
+    }
 }

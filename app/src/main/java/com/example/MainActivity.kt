@@ -152,6 +152,11 @@ fun MysticSnakesAndLaddersApp() {
                         onOpenPawnCollection = {
                             gameViewModel.openPawnCollection(uiState.currentPlayer?.id ?: 0)
                         },
+                        onOpenHeroCollection = {
+                            gameViewModel.openHeroCollection(uiState.currentPlayer?.id ?: 0)
+                        },
+                        onOpenHeroInfo = gameViewModel::openInGameHeroInfo,
+                        onRequestAbilityActivation = gameViewModel::requestAbilityActivation,
                         onFlipRevealSnakeCard = gameViewModel::flipRevealSnakeCard,
                         onCompleteSnakeCardChallenge = gameViewModel::completeSnakeCardChallenge,
                         onRestartGame = gameViewModel::restartCurrentMatch,
@@ -183,6 +188,50 @@ fun MysticSnakesAndLaddersApp() {
                     onUnlockAllSkins = gameViewModel::unlockAllPawnSkins,
                     onDismissRequest = gameViewModel::closePawnCollection
                 )
+            }
+
+            // Hero Collection & Customization Dialog
+            if (uiState.isHeroCollectionOpen) {
+                com.example.ui.components.HeroCollectionDialog(
+                    currentEquippedCharacterIds = uiState.playerCharacterIds,
+                    playerCount = uiState.playerCount,
+                    initialPlayerSlot = uiState.heroCollectionActiveSlot,
+                    onEquipHeroForSlot = gameViewModel::selectCharacterForSlot,
+                    onDismissRequest = gameViewModel::closeHeroCollection
+                )
+            }
+
+            // Real-time Hero Clash Interaction Overlay
+            uiState.activeHeroClash?.let { clashEvent ->
+                com.example.ui.components.HeroClashInteractionOverlay(
+                    clashEvent = clashEvent,
+                    onDismiss = gameViewModel::dismissHeroClash
+                )
+            }
+
+            // In-Game Active Ability Confirmation & Preview Modal
+            uiState.pendingAbilityConfirmationPlayerId?.let { playerId ->
+                val targetPlayer = uiState.players.find { it.id == playerId }
+                if (targetPlayer != null) {
+                    com.example.ui.components.AbilityActivationConfirmModal(
+                        player = targetPlayer,
+                        onConfirm = { gameViewModel.confirmAbilityActivation(playerId) },
+                        onDismiss = gameViewModel::cancelAbilityActivation
+                    )
+                }
+            }
+
+            // In-Game Hero Status HUD & Information Modal
+            uiState.inGameHeroInfoPlayerId?.let { playerId ->
+                val targetPlayer = uiState.players.find { it.id == playerId }
+                if (targetPlayer != null) {
+                    com.example.ui.components.InGameHeroInfoModal(
+                        player = targetPlayer,
+                        isCurrentTurn = uiState.currentPlayer?.id == targetPlayer.id,
+                        onActivateAbility = { gameViewModel.requestAbilityActivation(playerId) },
+                        onDismiss = gameViewModel::closeInGameHeroInfo
+                    )
+                }
             }
 
             // Hero Combat & Interaction Log Modal
@@ -256,6 +305,7 @@ fun MysticSnakesAndLaddersApp() {
                     onEquipPawnSkinForAll = gameViewModel::equipPawnSkinForAll,
                     onUnlockPawnSkin = gameViewModel::unlockPawnSkin,
                     onUnlockAllPawnSkins = gameViewModel::unlockAllPawnSkins,
+                    onEquipHeroForSlot = gameViewModel::selectCharacterForSlot,
                     onDismiss = gameViewModel::closeAdvancedSettings
                 )
             }

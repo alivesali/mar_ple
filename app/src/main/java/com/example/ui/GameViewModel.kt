@@ -177,7 +177,13 @@ data class GameUiState(
     val playerPawnSkinIds: List<String> = List(8) { "classic_standard" },
     val isPawnCollectionOpen: Boolean = false,
     val pawnCollectionActiveSlot: Int = 0,
-    val unlockedPawnSkinIds: Set<String> = com.example.model.PawnSkinCatalog.defaultUnlockedSkinIds
+    val unlockedPawnSkinIds: Set<String> = com.example.model.PawnSkinCatalog.defaultUnlockedSkinIds,
+    // Hero & In-Game UI Redesign System:
+    val pendingAbilityConfirmationPlayerId: Int? = null,
+    val inGameHeroInfoPlayerId: Int? = null,
+    val activeHeroClash: com.example.model.HeroClashEvent? = null,
+    val isHeroCollectionOpen: Boolean = false,
+    val heroCollectionActiveSlot: Int = 0
 ) {
     val currentPlayer: Player?
         get() = players.getOrNull(currentTurnIndex)
@@ -343,12 +349,16 @@ class GameViewModel(
         val savedShieldSnakePct = prefs.getInt("shield_snake_def_pct", 80).coerceIn(40, 95)
         val savedShieldObstaclePct = prefs.getInt("shield_obstacle_def_pct", 78).coerceIn(40, 95)
         val savedShieldHuntPct = prefs.getInt("shield_hunt_def_pct", 75).coerceIn(40, 95)
+        val savedPawnSkinIds = List(8) { idx ->
+            prefs.getString("player_pawn_skin_$idx", null) ?: "classic_standard"
+        }
 
         return GameUiState(
             phase = GamePhase.SETUP,
             playerCount = savedCount,
             activeSetupPlayerSlot = 0,
             playerCharacterIds = savedCharIds,
+            playerPawnSkinIds = savedPawnSkinIds,
             playerNamesInput = savedNames,
             maxTiles = savedMaxTiles,
             boardTheme = savedTheme,
@@ -885,6 +895,7 @@ class GameViewModel(
 
     fun equipPawnSkinForSlot(slot: Int, skinId: String) {
         soundManager.playDiceTick(5)
+        prefs.edit().putString("player_pawn_skin_$slot", skinId).apply()
         _uiState.update { state ->
             val updatedSkinIds = state.playerPawnSkinIds.toMutableList()
             while (updatedSkinIds.size <= slot) {
@@ -909,6 +920,9 @@ class GameViewModel(
 
     fun equipPawnSkinForAll(skinId: String) {
         soundManager.playDiceTick(6)
+        for (i in 0 until 8) {
+            prefs.edit().putString("player_pawn_skin_$i", skinId).apply()
+        }
         _uiState.update { state ->
             val updatedSkinIds = List(8) { skinId }
             val updatedPlayers = state.players.map { player ->
@@ -937,6 +951,55 @@ class GameViewModel(
         prefs.edit().putStringSet("unlocked_pawn_skins", allIds).apply()
         _uiState.update { it.copy(unlockedPawnSkinIds = allIds) }
         showCardSaveFeedback("تمام ۳۹ پوسته مهره بازگشایی شدند! 👑")
+    }
+
+    // Hero Collection Dialog Controls:
+    fun openHeroCollection(slot: Int = 0) {
+        soundManager.playDiceTick(4)
+        _uiState.update {
+            val safeSlot = slot.coerceIn(0, (it.playerCount - 1).coerceAtLeast(0))
+            it.copy(
+                isHeroCollectionOpen = true,
+                heroCollectionActiveSlot = safeSlot
+            )
+        }
+    }
+
+    fun closeHeroCollection() {
+        soundManager.playDiceTick(1)
+        _uiState.update { it.copy(isHeroCollectionOpen = false) }
+    }
+
+    // In-Game Hero Info HUD Controls:
+    fun openInGameHeroInfo(playerId: Int) {
+        soundManager.playDiceTick(3)
+        _uiState.update { it.copy(inGameHeroInfoPlayerId = playerId) }
+    }
+
+    fun closeInGameHeroInfo() {
+        soundManager.playDiceTick(1)
+        _uiState.update { it.copy(inGameHeroInfoPlayerId = null) }
+    }
+
+    // Ability Confirmation Modal Controls:
+    fun requestAbilityActivation(playerId: Int) {
+        soundManager.playDiceTick(4)
+        _uiState.update { it.copy(pendingAbilityConfirmationPlayerId = playerId) }
+    }
+
+    fun cancelAbilityActivation() {
+        soundManager.playDiceTick(1)
+        _uiState.update { it.copy(pendingAbilityConfirmationPlayerId = null) }
+    }
+
+    fun confirmAbilityActivation(playerId: Int) {
+        _uiState.update { it.copy(pendingAbilityConfirmationPlayerId = null) }
+        activateCharacterAbility()
+    }
+
+    // Hero Clash Interaction Overlay:
+    fun dismissHeroClash() {
+        _uiState.update { it.copy(activeHeroClash = null) }
     }
 
     fun setAnimationSpeed(speed: AnimationSpeed) {
@@ -1873,6 +1936,30 @@ class GameViewModel(
                 else -> HeroBoardFxType.NONE
             }
 
+            val clashEvent = com.example.model.HeroClashEvent(
+                attackerId = attacker.id,
+                attackerName = attacker.name,
+                attackerCharacter = attacker.character,
+                defenderId = defender.id,
+                defenderName = defender.name,
+                defenderCharacter = defender.character,
+                abilityName = attacker.character.heroBlueprint.primaryAbility.persianName,
+                tile = landedTile,
+                outcomeType = resolution.outcomeType,
+                defenseStatusDescription = when {
+                    resolution.defenderAngelConsumed -> "سپر فرشتهٔ نجات 🌟"
+                    resolution.defenderShieldConsumed -> "سپر دفاعی محافظ 🛡️"
+                    resolution.defenderPhantomConsumed -> "فرار شبح‌وار 👻"
+                    resolution.defenderDecoyConsumed -> "سراب توهمی 🪄"
+                    defender.character.heroBlueprint.resistanceProfile.displacementResistancePercent > 0 -> "لنگر سنگین زرهی ⚓"
+                    else -> "دفاع پایه (${resolution.defenseRoll})"
+                },
+                resultMessage = resolution.combatLogMessage,
+                attackRoll = resolution.attackRoll,
+                defenseRoll = resolution.defenseRoll,
+                knockbackSteps = (landedTile - resolution.defenderNewTile).coerceAtLeast(0)
+            )
+
             // Atomic state update
             _uiState.update { st ->
                 val updatedPlayers = st.players.map { p ->
@@ -1897,6 +1984,7 @@ class GameViewModel(
                 st.copy(
                     players = updatedPlayers,
                     combatLogs = updatedLogs,
+                    activeHeroClash = if (!skipAnimationForTest) clashEvent else null,
                     isTokenAnimating = !skipAnimationForTest && resolution.defenderNewTile != landedTile,
                     highlightEffect = if (fxType != HeroBoardFxType.NONE) {
                         BoardHighlightEffect(

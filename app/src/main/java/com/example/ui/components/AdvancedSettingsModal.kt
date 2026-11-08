@@ -109,8 +109,9 @@ import kotlin.math.roundToInt
 enum class AdvancedSettingsTab(val title: String, val emoji: String) {
     BOARD_AND_THEME("صفحه و تم", "🎨"),
     EFFECTS_AND_MUSIC("استودیو جلوه و صدا", "✨"),
+    HERO_COLLECTION("کلکسیون قهرمانان", "🦸"),
     PAWN_COLLECTION("کلکسیون مهره‌ها", "♟️"),
-    CUSTOM_CHARACTER("ساخت کاراکتر", "🦸"),
+    CUSTOM_CHARACTER("ساخت کاراکتر", "🛠️"),
     CARDS_MANAGER("کارت‌ها", "🃏"),
     PROFILES("پروفایل‌ها", "💾")
 }
@@ -193,6 +194,7 @@ fun AdvancedSettingsModal(
     onEquipPawnSkinForAll: (skinId: String) -> Unit = {},
     onUnlockPawnSkin: (skinId: String) -> Unit = {},
     onUnlockAllPawnSkins: () -> Unit = {},
+    onEquipHeroForSlot: (slot: Int, characterId: String) -> Unit = { _, _ -> },
     onDismiss: () -> Unit
 ) {
     var activeTab by remember { mutableStateOf(initialTab) }
@@ -421,6 +423,12 @@ fun AdvancedSettingsModal(
                                 onUpdateCard = onUpdateCard,
                                 onDeleteCard = onDeleteCard,
                                 onToggleCategoryEnabled = onToggleCardCategory
+                            )
+                            AdvancedSettingsTab.HERO_COLLECTION -> HeroCollectionContent(
+                                currentEquippedCharacterIds = uiState.playerCharacterIds,
+                                playerCount = uiState.playerCount,
+                                initialPlayerSlot = uiState.heroCollectionActiveSlot,
+                                onEquipHeroForSlot = onEquipHeroForSlot
                             )
                             AdvancedSettingsTab.PAWN_COLLECTION -> PawnCollectionContent(
                                 currentEquippedSkinId = uiState.playerPawnSkinIds.getOrElse(uiState.pawnCollectionActiveSlot) { "classic_standard" },

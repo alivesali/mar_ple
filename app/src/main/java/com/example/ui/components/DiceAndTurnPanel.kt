@@ -108,6 +108,7 @@ fun DiceAndTurnPanel(
     pendingPrecisionChoice: PrecisionRollChoice?,
     onRollDice: () -> Unit,
     onActivateAbility: () -> Unit,
+    onOpenHeroInfo: (Int) -> Unit = {},
     onSelectPrecisionOption: (Int) -> Unit,
     secondDiceValue: Int = 6,
     secondDiceRotationDeg: Float = 0f,
@@ -236,7 +237,13 @@ fun DiceAndTurnPanel(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(contentAlignment = Alignment.BottomEnd) {
+                        Box(
+                            contentAlignment = Alignment.BottomEnd,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onOpenHeroInfo(currentPlayer.id) }
+                                .testTag("turn_panel_hero_info_trigger")
+                        ) {
                             CharacterPortraitAvatar(
                                 character = character,
                                 size = 34.dp,

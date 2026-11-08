@@ -56,6 +56,27 @@ data class CombatLogEntry(
 )
 
 /**
+ * Real-time Hero Clash Event for displaying an animated confrontation modal
+ * when an ability or collision resolves between two heroes on the board.
+ */
+data class HeroClashEvent(
+    val attackerId: Int,
+    val attackerName: String,
+    val attackerCharacter: GameCharacter,
+    val defenderId: Int,
+    val defenderName: String,
+    val defenderCharacter: GameCharacter,
+    val abilityName: String,
+    val tile: Int,
+    val outcomeType: CombatOutcomeType,
+    val defenseStatusDescription: String,
+    val resultMessage: String,
+    val attackRoll: Int,
+    val defenseRoll: Int,
+    val knockbackSteps: Int = 0
+)
+
+/**
  * The Hero Combat Compatibility Matrix entry defining how Class A interacts with Class B.
  */
 data class ClassCompatibilityRule(

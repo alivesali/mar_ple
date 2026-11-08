@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -100,6 +101,7 @@ import com.example.sound.soundscapeInfo
 import com.example.ui.GameUiState
 import com.example.ui.components.AdvancedSettingsTab
 import com.example.ui.components.EnvironmentEffectsOverlay
+import com.example.model.HeroClass
 import com.example.model.HeroVisualCatalog
 import com.example.ui.components.HeroDetailShowcaseDialog
 import com.example.ui.theme.MysticDeepPlum
@@ -148,6 +150,7 @@ fun SetupScreen(
 
     val expandedCardIds = remember { mutableStateMapOf<String, Boolean>() }
     var inspectingCharacter by remember { mutableStateOf<GameCharacter?>(null) }
+    var selectedHeroClassFilter by remember { mutableStateOf<HeroClass?>(null) }
     val activeSlot = uiState.activeSetupPlayerSlot.coerceIn(0, (uiState.playerCount - 1).coerceAtLeast(0))
     val activeSlotTokenColor = PlayerTokenColors[activeSlot % PlayerTokenColors.size]
     val activeSlotColorTitle = PlayerColorNames[activeSlot % PlayerColorNames.size]
@@ -1109,8 +1112,55 @@ fun SetupScreen(
                             }
                         }
 
-                        // Render all characters (custom + 16 default) in rows of 2 cards
-                        val allCharacters = uiState.allAvailableCharacters
+                        // Hero Class Filter Chips
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp)
+                        ) {
+                            item {
+                                val isAll = selectedHeroClassFilter == null
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(if (isAll) RadiantGold else Color.White.copy(alpha = 0.08f))
+                                        .border(1.dp, if (isAll) RadiantGold else Color.White.copy(alpha = 0.20f), RoundedCornerShape(20.dp))
+                                        .clickable { selectedHeroClassFilter = null }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text = "همه (${uiState.allAvailableCharacters.size.toPersianDigits()})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isAll) Color(0xFF140B24) else Color.White
+                                    )
+                                }
+                            }
+                            items(HeroClass.entries.toList()) { heroClass ->
+                                val isSelected = selectedHeroClassFilter == heroClass
+                                val count = uiState.allAvailableCharacters.count { it.heroBlueprint.primaryClass == heroClass }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(20.dp))
+                                        .background(if (isSelected) RadiantGold else Color.White.copy(alpha = 0.08f))
+                                        .border(1.dp, if (isSelected) RadiantGold else Color.White.copy(alpha = 0.20f), RoundedCornerShape(20.dp))
+                                        .clickable { selectedHeroClassFilter = heroClass }
+                                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                                ) {
+                                    Text(
+                                        text = "${heroClass.badgeEmoji} ${heroClass.persianTitle} (${count.toPersianDigits()})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color(0xFF140B24) else Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        // Render filtered characters in rows of 2 cards
+                        val allCharacters = remember(uiState.allAvailableCharacters, selectedHeroClassFilter) {
+                            if (selectedHeroClassFilter == null) uiState.allAvailableCharacters
+                            else uiState.allAvailableCharacters.filter { it.heroBlueprint.primaryClass == selectedHeroClassFilter }
+                        }
                         val rows = remember(allCharacters) { allCharacters.chunked(2) }
                         rows.forEach { rowPair ->
                             Row(
@@ -1630,6 +1680,88 @@ private fun CharacterSelectionCard(
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+
+                    // Hero Class & Cooldown Badge
+                    val blueprint = character.heroBlueprint
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(character.primaryColor.copy(alpha = 0.35f))
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "${blueprint.primaryClass.badgeEmoji} ${blueprint.primaryClass.persianTitle}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(RadiantGold.copy(alpha = 0.20f))
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "⏳ کول‌داون: ${blueprint.primaryAbility.cooldownTurns.toPersianDigits()} نوبت",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = RadiantGold,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Strengths & Weaknesses
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (blueprint.strengths.isNotEmpty()) {
+                            Text(
+                                text = "💪 ${blueprint.strengths.first()}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = HopefulEmerald,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (blueprint.weaknesses.isNotEmpty()) {
+                            Text(
+                                text = "⚠️ ${blueprint.weaknesses.first()}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = com.example.ui.theme.DangerCrimson,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Selected Indicator Banner if active slot
+            if (isSelectedForActiveSlot) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(HopefulEmerald.copy(alpha = 0.25f))
+                        .border(1.dp, HopefulEmerald, RoundedCornerShape(8.dp))
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "✓ قهرمان انتخاب‌شده برای بازی",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = HopefulEmerald,
+                        fontWeight = FontWeight.ExtraBold
                     )
                 }
             }
