@@ -203,19 +203,14 @@ data class HeroCombatResolution(
 
 /**
  * Deterministic Engine that evaluates collision and combat interactions.
+ * Fully unified with CombatResolutionEngine.
  */
 object HeroCombatEngine {
+    private val unifiedEngine = com.example.engine.CombatResolutionEngine()
 
     /**
      * Resolves the interaction when an `attacker` token lands on the same tile as a `defender` token.
      * Evaluates active abilities, passive protections, stat advantages, and generates an atomic outcome.
-     *
-     * @param attacker The active player landing on the tile.
-     * @param defender The occupying player already on that tile.
-     * @param tile The tile number where they collide.
-     * @param forcedAttackRoll Optional deterministic roll (0..99) for testing.
-     * @param forcedDefenseRoll Optional deterministic roll (0..99) for testing.
-     * @param baseShieldProbability Base defense rate from settings (e.g. 75%).
      */
     fun resolveTileCollision(
         attacker: Player,
@@ -225,216 +220,33 @@ object HeroCombatEngine {
         forcedDefenseRoll: Int? = null,
         baseShieldProbability: Int = 75
     ): HeroCombatResolution {
-        val attackerHero = attacker.character.heroBlueprint
-        val defenderHero = defender.character.heroBlueprint
-        val attackerClass = attackerHero.primaryClass
-        val defenderClass = defenderHero.primaryClass
-
-        val attackerStats = attackerHero.stats
-        val defenderStats = defenderHero.stats
-
-        val compatibility = HeroCombatMatrix.getCompatibilityRule(attackerClass, defenderClass)
-
-        // Evaluate single attack roll and defense roll
-        val attackRoll = forcedAttackRoll ?: kotlin.random.Random.nextInt(100)
-        val defenseRoll = forcedDefenseRoll ?: kotlin.random.Random.nextInt(100)
-
-        // -------------------------------------------------------------
-        // PRIORITY 1: Absolute Defensive Illusion/Phantom/Angel Auras
-        // -------------------------------------------------------------
-
-        // Priority 1A: Illusionist Mirage Decoy (Luna)
-        if (defender.illusionDecoyTile != null && defender.illusionTurnsRemaining > 0) {
-            val log = "«${attacker.name}» (${attackerHero.persianTitle}) به خانهٔ «${defender.name}» یورش برد، اما ضربه به بدل توهمی برخورد کرد و موقعیت واقعی حفظ شد."
-            val banner = "سراب توهم‌زا! 🪄 حملهٔ ${attacker.name} توسط بدل توهمی ${defender.name} جذب شد و خنثی گشت!"
-            return HeroCombatResolution(
-                outcomeType = CombatOutcomeType.ILLUSION_DIVERTED,
-                attackerId = attacker.id,
-                defenderId = defender.id,
-                tile = tile,
-                attackerNewTile = tile,
-                defenderNewTile = tile,
-                defenderDecoyConsumed = true,
-                combatLogMessage = log,
-                bannerMessage = banner,
-                attackRoll = attackRoll,
-                defenseRoll = defenseRoll
-            )
-        }
-
-        // Priority 1B: Guardian Angel Wings (Stella)
-        if (defender.guardianAngelProtected) {
-            val log = "«${attacker.name}» به «${defender.name}» یورش برد، اما بال‌های نورانی فرشتهٔ محافظ مانع شد و حمله را خنثی کرد."
-            val banner = "سپر فرشتهٔ نجات! 🌟 بال‌های نورانی فرشته از ${defender.name} در برابر حملهٔ ${attacker.name} محافظت کامل کردند!"
-            return HeroCombatResolution(
-                outcomeType = CombatOutcomeType.ANGEL_PROTECTED,
-                attackerId = attacker.id,
-                defenderId = defender.id,
-                tile = tile,
-                attackerNewTile = tile,
-                defenderNewTile = tile,
-                defenderAngelConsumed = true,
-                combatLogMessage = log,
-                bannerMessage = banner,
-                attackRoll = attackRoll,
-                defenseRoll = defenseRoll
-            )
-        }
-
-        // Priority 1C: Phantom Phase (Zephyr)
-        if (defender.phantomPhaseActive) {
-            val log = "«${attacker.name}» با «${defender.name}» برخورد کرد، اما ${defender.name} در حالت شبح باد بود و بدون آسیب از کنار او گذشت."
-            val banner = "گام شبح باد! 👻🌪️ ${defender.name} شبح‌وار از حملهٔ ${attacker.name} جاخالی داد!"
-            return HeroCombatResolution(
-                outcomeType = CombatOutcomeType.PHANTOM_EVADED,
-                attackerId = attacker.id,
-                defenderId = defender.id,
-                tile = tile,
-                attackerNewTile = tile,
-                defenderNewTile = tile,
-                defenderPhantomConsumed = true,
-                combatLogMessage = log,
-                bannerMessage = banner,
-                attackRoll = attackRoll,
-                defenseRoll = defenseRoll
-            )
-        }
-
-        // -------------------------------------------------------------
-        // PRIORITY 2: Heavy Anchor & Displacement Immunity (Kai / Atlas)
-        // -------------------------------------------------------------
-        val isDefenderHeavyAnchor = defender.character.abilityType == CharacterAbilityType.HALF_REVERSE ||
-            defender.character.abilityType == CharacterAbilityType.EARTH_TITAN
-
-        val isAttackerExecutionerOrWarrior = attacker.character.abilityType == CharacterAbilityType.SNAKE_HUNTER ||
-            attackerClass == HeroClass.WARRIOR ||
-            attackerClass == HeroClass.ASSASSIN
-
-        // -------------------------------------------------------------
-        // PRIORITY 3: Active Guardian Shield Defense (Jack)
-        // -------------------------------------------------------------
-        val hasChargedShield = defender.isShieldCharged &&
-            (defender.character.abilityType == CharacterAbilityType.GUARDIAN_SHIELD || defenderClass == HeroClass.GUARDIAN)
-
-        if (hasChargedShield) {
-            val effectiveDefenseChance = defenderStats.computeShieldDefenseChance(
-                baseConfiguredPercent = baseShieldProbability + compatibility.counterChanceBonusPercent,
-                threatCategory = ShieldThreatCategory.EXECUTIONER_OR_ABILITY
-            )
-
-            if (defenseRoll < effectiveDefenseChance) {
-                val isCriticalParry = defenseRoll < defenderStats.criticalParryPreserveShieldPercent
-                val parryNote = if (isCriticalParry) "دفع بی‌نقص بدون مصرف سپر! ✨" else "سپر مصرف شد (شارژ مجدد: ۳ نوبت)"
-                val log = if (isCriticalParry) {
-                    "«${defender.name}» با دفع بی‌نقص سپر نورانی، حملهٔ «${attacker.name}» را مهار کرد بدون آنکه سپر مصرف شود."
-                } else {
-                    "«${defender.name}» با سپر نورانی خود، ضربهٔ «${attacker.name}» را دفع کرد."
-                }
-                val banner = "سپر حمله را دفع کرد! 🛡️✨ ${defender.name} در برابر یورش ${attacker.name} استقامت کرد — $parryNote"
-                return HeroCombatResolution(
-                    outcomeType = if (isCriticalParry) CombatOutcomeType.CRITICAL_PARRY else CombatOutcomeType.SHIELD_PARRY,
-                    attackerId = attacker.id,
-                    defenderId = defender.id,
-                    tile = tile,
-                    attackerNewTile = tile,
-                    defenderNewTile = tile,
-                    defenderShieldConsumed = !isCriticalParry,
-                    defenderCriticalParry = isCriticalParry,
-                    combatLogMessage = log,
-                    bannerMessage = banner,
-                    attackRoll = attackRoll,
-                    defenseRoll = defenseRoll
-                )
-            }
-        }
-
-        // -------------------------------------------------------------
-        // PRIORITY 4: Offensive Attack Resolution
-        // -------------------------------------------------------------
-
-        // Case 4A: Executioner Hunt (Blade / SNAKE_HUNTER) or aggressive Warrior/Assassin charge
-        if (isAttackerExecutionerOrWarrior) {
-            // Check heavy anchor mitigation
-            if (isDefenderHeavyAnchor) {
-                val log = "«${attacker.name}» قصد عقب راندن «${defender.name}» را داشت، اما زره صخره‌ای و لنگر تعادل ${defender.name} مانع جابه‌جایی شد."
-                val banner = "لنگر سنگین بی‌اثر ساخت! ⚓ پایدار ماندن ${defender.name} در برابر ضربهٔ ${attacker.name}!"
-                return HeroCombatResolution(
-                    outcomeType = CombatOutcomeType.ANCHOR_IMMUNE,
-                    attackerId = attacker.id,
-                    defenderId = defender.id,
-                    tile = tile,
-                    attackerNewTile = tile,
-                    defenderNewTile = tile,
-                    combatLogMessage = log,
-                    bannerMessage = banner,
-                    attackRoll = attackRoll,
-                    defenseRoll = defenseRoll
-                )
-            }
-
-            // Stat-based attack chance vs defender resistance
-            val successChance = (compatibility.baseSuccessPercent + (attackerStats.attack - defenderStats.resistance) * 4).coerceIn(35, 95)
-
-            if (attackRoll < successChance) {
-                // Successful Hunt Knockback!
-                val knockbackSteps = (tile / 2).coerceAtLeast(1)
-                val newDefenderTile = (tile - knockbackSteps).coerceAtLeast(2)
-
-                val entersBerserker = defender.character.abilityType == CharacterAbilityType.EARTH_TITAN
-                val entersDragonSoul = defender.character.abilityType == CharacterAbilityType.PHOENIX_WINGS
-
-                val log = "«${attacker.name}» با شمشیر شکارچی بر «${defender.name}» پیروز شد و او را ${knockbackSteps} خانه به عقب (خانهٔ ${newDefenderTile}) پرتاب کرد."
-                val banner = "حمله موفق بود! بازیکن شکار شد! ⚔️💥 ${attacker.name} مهرهٔ ${defender.name} را ${knockbackSteps} خانه به عقب پرتاب کرد!"
-
-                return HeroCombatResolution(
-                    outcomeType = CombatOutcomeType.ATTACK_HIT,
-                    attackerId = attacker.id,
-                    defenderId = defender.id,
-                    tile = tile,
-                    attackerNewTile = tile,
-                    defenderNewTile = newDefenderTile,
-                    defenderEntersBerserkerRage = entersBerserker,
-                    defenderEntersDragonSoulBoost = entersDragonSoul,
-                    combatLogMessage = log,
-                    bannerMessage = banner,
-                    attackRoll = attackRoll,
-                    defenseRoll = defenseRoll
-                )
-            } else {
-                // Resistance Mitigated / Attack Failed
-                val entersDragonSoul = defender.character.abilityType == CharacterAbilityType.PHOENIX_WINGS
-                val log = "«${attacker.name}» به «${defender.name}» حمله کرد، اما مقاومت بدنی ${defender.name} ضربه را خنثی کرد."
-                val banner = "مقاومت فعال شد! 🌿 ${defender.name} در برابر یورش ${attacker.name} مقاومت کرد و آسیبی ندید!"
-                return HeroCombatResolution(
-                    outcomeType = CombatOutcomeType.RESISTANCE_MITIGATED,
-                    attackerId = attacker.id,
-                    defenderId = defender.id,
-                    tile = tile,
-                    attackerNewTile = tile,
-                    defenderNewTile = tile,
-                    defenderEntersDragonSoulBoost = entersDragonSoul,
-                    combatLogMessage = log,
-                    bannerMessage = banner,
-                    attackRoll = attackRoll,
-                    defenseRoll = defenseRoll
-                )
-            }
-        }
-
-        // Case 4B: Peaceful Co-existence / Non-combatant collision
-        val log = "«${attacker.name}» و «${defender.name}» هر دو در خانهٔ ${tile} هم‌گام شدند."
-        val banner = "هم‌نشینی در خانهٔ ${tile}! 🤝 ${attacker.name} و ${defender.name} هر دو در یک خانه قرار گرفتند."
+        val res = unifiedEngine.resolveClash(
+            attacker = attacker,
+            defender = defender,
+            teamManager = null,
+            forcedAttackRoll = forcedAttackRoll,
+            forcedDefenseRoll = forcedDefenseRoll,
+            baseShieldProbability = baseShieldProbability
+        )
         return HeroCombatResolution(
-            outcomeType = CombatOutcomeType.NEUTRAL_COEXIST,
+            outcomeType = res.outcomeType,
             attackerId = attacker.id,
             defenderId = defender.id,
             tile = tile,
-            attackerNewTile = tile,
-            defenderNewTile = tile,
-            combatLogMessage = log,
-            bannerMessage = banner,
-            attackRoll = attackRoll,
-            defenseRoll = defenseRoll
+            attackerNewTile = res.attackerFinalTile,
+            defenderNewTile = res.defenderFinalTile,
+            attackerShieldConsumed = res.attackerShieldConsumed,
+            defenderShieldConsumed = res.defenderShieldConsumed,
+            defenderCriticalParry = res.defenderCriticalParry,
+            defenderAngelConsumed = res.defenderAngelConsumed,
+            defenderPhantomConsumed = res.defenderPhantomConsumed,
+            defenderDecoyConsumed = res.defenderDecoyConsumed,
+            defenderEntersBerserkerRage = res.defenderEntersBerserkerRage,
+            defenderEntersDragonSoulBoost = res.defenderEntersDragonSoulBoost,
+            combatLogMessage = res.description,
+            bannerMessage = res.description,
+            attackRoll = res.attackRoll,
+            defenseRoll = res.defenseRoll
         )
     }
 }

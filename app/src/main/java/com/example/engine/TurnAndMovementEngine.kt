@@ -77,23 +77,47 @@ class TurnAndMovementEngine(
     }
 
     /**
-     * Computes the next active turn index among eligible players.
+     * Computes the next active turn index among eligible alive players.
+     * Guaranteed bounds-safe under all conditions:
+     * - Does not throw IndexOutOfBoundsException when [activePlayers] size differs from [playerCount].
+     * - Skips dead players when player states are provided.
+     * - Returns 0 or valid index if no alive players or only 1 player remains without crashing.
+     * - Safely handles empty lists and player counts of 1, 2, 8.
      */
     fun getNextTurnIndex(
         currentIndex: Int,
         playerCount: Int,
         activePlayers: List<Player> = emptyList()
     ): Int {
-        if (playerCount <= 1) return 0
-        var nextIndex = (currentIndex + 1) % playerCount
-        // If player filtering is provided (e.g. alive players), advance to the next alive player
-        if (activePlayers.isNotEmpty()) {
-            var attempts = 0
-            while (attempts < playerCount && !activePlayers[nextIndex].resources.isAlive) {
-                nextIndex = (nextIndex + 1) % playerCount
-                attempts++
-            }
+        if (activePlayers.isEmpty()) {
+            if (playerCount <= 1) return 0
+            val safeCurrent = if (currentIndex in 0 until playerCount) currentIndex else 0
+            return (safeCurrent + 1) % playerCount
         }
-        return nextIndex
+
+        val total = activePlayers.size
+        if (total <= 1) return 0
+
+        val aliveIndices = activePlayers.indices.filter { activePlayers[it].resources.isAlive }
+        if (aliveIndices.isEmpty()) {
+            // No alive players: return safe bounded index without crashing
+            return currentIndex.coerceIn(0, total - 1)
+        }
+        if (aliveIndices.size == 1) {
+            return aliveIndices.first()
+        }
+
+        val safeCurrent = currentIndex.coerceIn(0, total - 1)
+        var next = (safeCurrent + 1) % total
+        var checked = 0
+        while (checked < total) {
+            if (activePlayers[next].resources.isAlive) {
+                return next
+            }
+            next = (next + 1) % total
+            checked++
+        }
+
+        return aliveIndices.first()
     }
 }

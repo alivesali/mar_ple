@@ -67,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -351,6 +352,50 @@ fun DiceAndTurnPanel(
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
+                                }
+                            }
+
+                            // Compact Player Resources HUD (HP / Mana / Shield)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text("❤️", fontSize = 10.sp)
+                                    Text(
+                                        text = "${currentPlayer.hp.toPersianDigits()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (currentPlayer.hp <= 30) Color(0xFFEF4444) else Color(0xFF4ADE80),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text("💧", fontSize = 10.sp)
+                                    Text(
+                                        text = "${currentPlayer.mana.toPersianDigits()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color(0xFF60A5FA),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text("🛡️", fontSize = 10.sp)
+                                    Text(
+                                        text = "${currentPlayer.shield.toPersianDigits()}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (currentPlayer.isShieldCharged || currentPlayer.shield > 0) Color(0xFFFBBF24) else Color.Gray,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                         }

@@ -1566,6 +1566,10 @@ class GameViewModel(
         pendingSnakeCardCompletion?.complete(Unit)
         val current = _uiState.value
 
+        val effectiveCount = if (current.playerCount == 1) 2 else current.playerCount
+        val effectiveMode = if (current.playerCount == 1) TeamMode.SOLO_FREE_FOR_ALL else current.teamMode
+        teamManager = TeamManager.createDefaultTeams(effectiveCount, effectiveMode)
+
         val humanPlayers = (0 until current.playerCount).map { idx ->
             val charId = current.playerCharacterIds.getOrElse(idx) {
                 CharacterRoster.allCharacters[idx].id
@@ -1574,6 +1578,16 @@ class GameViewModel(
             val rawName = current.playerNamesInput.getOrNull(idx)?.trim().orEmpty()
             val finalName = rawName.ifEmpty { character.defaultEnglishName }
             val skinId = current.playerPawnSkinIds.getOrElse(idx) { "classic_standard" }
+            val pTeamId = teamManager.getTeamForPlayer(idx)?.id ?: "team_solo_$idx"
+            val initialShield = if (character.abilityType == CharacterAbilityType.GUARDIAN_SHIELD) 50 else 0
+            val pResources = PlayerResources(
+                hp = 100,
+                maxHp = 100,
+                mana = 100,
+                maxMana = 100,
+                shield = initialShield,
+                maxShield = 50
+            )
             Player(
                 id = idx,
                 name = finalName,
@@ -1584,7 +1598,9 @@ class GameViewModel(
                 currentTile = 1,
                 abilityChargeProgress = character.abilityType.cooldownTurns.coerceAtLeast(3),
                 isShieldCharged = (character.abilityType == CharacterAbilityType.GUARDIAN_SHIELD),
-                customPawnSkinId = skinId
+                customPawnSkinId = skinId,
+                teamId = pTeamId,
+                resources = pResources
             )
         }
 
@@ -1600,6 +1616,16 @@ class GameViewModel(
 
             val aiShortLevel = current.aiDifficulty.persianTitle.substringBefore(" ")
             val aiSkinId = current.playerPawnSkinIds.getOrElse(1) { "fantasy_plasma" }
+            val aiTeamId = teamManager.getTeamForPlayer(1)?.id ?: "team_solo_1"
+            val aiInitialShield = if (aiCharacter.abilityType == CharacterAbilityType.GUARDIAN_SHIELD) 50 else 30
+            val aiResources = PlayerResources(
+                hp = 100,
+                maxHp = 100,
+                mana = 100,
+                maxMana = 100,
+                shield = aiInitialShield,
+                maxShield = 50
+            )
             val aiBot = Player(
                 id = 1,
                 name = "🤖 ربات ($aiShortLevel)",
@@ -1610,7 +1636,9 @@ class GameViewModel(
                 currentTile = 1,
                 abilityChargeProgress = aiCharacter.abilityType.cooldownTurns.coerceAtLeast(3),
                 isShieldCharged = (aiCharacter.abilityType == CharacterAbilityType.GUARDIAN_SHIELD),
-                customPawnSkinId = aiSkinId
+                customPawnSkinId = aiSkinId,
+                teamId = aiTeamId,
+                resources = aiResources
             )
             listOf(humanPlayers.first(), aiBot)
         } else {
@@ -1662,6 +1690,7 @@ class GameViewModel(
             return
         }
         val resetPlayers = current.players.map { p ->
+            val initialShield = if (p.character.abilityType == CharacterAbilityType.GUARDIAN_SHIELD) 50 else 0
             p.copy(
                 currentTile = 1,
                 totalSixes = 0,
@@ -1688,7 +1717,9 @@ class GameViewModel(
                 illusionDecoyTile = null,
                 illusionTurnsRemaining = 0,
                 gravityCapNextRoll = false,
-                pinnedSlowSteps = 0
+                pinnedSlowSteps = 0,
+                teamId = p.teamId ?: teamManager.getTeamForPlayer(p.id)?.id,
+                resources = PlayerResources(hp = 100, maxHp = 100, mana = 100, maxMana = 100, shield = initialShield, maxShield = 50)
             )
         }
         val newBoard = BoardGenerator.generateBoardConfiguration(
@@ -1992,21 +2023,27 @@ class GameViewModel(
         val maxTiles = state.maxTiles
         if (landedTile <= 1 || landedTile >= maxTiles) return false
 
-        val attacker = state.players.find { it.id == movingPlayerId } ?: return false
+        var attacker = state.players.find { it.id == movingPlayerId } ?: return false
         val rivalsOnTile = state.players.filter { it.id != movingPlayerId && it.currentTile == landedTile }
         if (rivalsOnTile.isEmpty()) return false
 
         var anyCombatHappened = false
 
         for (defender in rivalsOnTile) {
-            val resolution = HeroCombatEngine.resolveTileCollision(
+            if (attacker.currentTile != landedTile) break
+
+            val resolution = combatResolutionEngine.resolveClash(
                 attacker = attacker,
                 defender = defender,
-                tile = landedTile,
+                teamManager = teamManager,
                 forcedAttackRoll = forcedAttackRoll,
                 forcedDefenseRoll = forcedDefenseRoll,
                 baseShieldProbability = state.shieldHuntDefensePercent
             )
+
+            if (resolution.isTeammatePeacefulEncounter) {
+                continue
+            }
 
             // Create combat log entry
             val currentTurnNum = attacker.personalTurnsTaken + 1
@@ -2020,11 +2057,11 @@ class GameViewModel(
                 defenderHeroClass = defender.character.heroBlueprint.primaryClass,
                 tile = landedTile,
                 outcomeType = resolution.outcomeType,
-                description = resolution.combatLogMessage,
+                description = resolution.description,
                 attackerTileBefore = landedTile,
-                attackerTileAfter = resolution.attackerNewTile,
+                attackerTileAfter = resolution.attackerFinalTile,
                 defenderTileBefore = landedTile,
-                defenderTileAfter = resolution.defenderNewTile,
+                defenderTileAfter = resolution.defenderFinalTile,
                 attackRoll = resolution.attackRoll,
                 defenseRoll = resolution.defenseRoll
             )
@@ -2058,27 +2095,21 @@ class GameViewModel(
                     defender.character.heroBlueprint.resistanceProfile.displacementResistancePercent > 0 -> "لنگر سنگین زرهی ⚓"
                     else -> "دفاع پایه (${resolution.defenseRoll})"
                 },
-                resultMessage = resolution.combatLogMessage,
+                resultMessage = resolution.description,
                 attackRoll = resolution.attackRoll,
                 defenseRoll = resolution.defenseRoll,
-                knockbackSteps = (landedTile - resolution.defenderNewTile).coerceAtLeast(0)
+                knockbackSteps = (landedTile - resolution.defenderFinalTile).coerceAtLeast(0)
             )
 
-            // Atomic state update
+            // Atomic state update: positions, HP, Shield, Mana, and statuses
+            val updatedAttacker = resolution.attacker
+            val updatedDefender = resolution.defender
+
             _uiState.update { st ->
                 val updatedPlayers = st.players.map { p ->
                     when (p.id) {
-                        defender.id -> p.copy(
-                            previousTurnTile = defender.currentTile,
-                            isShieldCharged = if (resolution.defenderShieldConsumed) false else p.isShieldCharged,
-                            abilityChargeProgress = if (resolution.defenderShieldConsumed) 0 else p.abilityChargeProgress,
-                            guardianAngelProtected = if (resolution.defenderAngelConsumed) false else p.guardianAngelProtected,
-                            phantomPhaseActive = if (resolution.defenderPhantomConsumed) false else p.phantomPhaseActive,
-                            illusionDecoyTile = if (resolution.defenderDecoyConsumed) null else p.illusionDecoyTile,
-                            illusionTurnsRemaining = if (resolution.defenderDecoyConsumed) 0 else p.illusionTurnsRemaining,
-                            berserkerRageTurns = if (resolution.defenderEntersBerserkerRage) 2 else p.berserkerRageTurns,
-                            dragonSoulBoostTurns = if (resolution.defenderEntersDragonSoulBoost) 2 else p.dragonSoulBoostTurns
-                        )
+                        updatedAttacker.id -> updatedAttacker
+                        updatedDefender.id -> updatedDefender
                         else -> p
                     }
                 }
@@ -2089,7 +2120,7 @@ class GameViewModel(
                     players = updatedPlayers,
                     combatLogs = updatedLogs,
                     activeHeroClash = if (!skipAnimationForTest) clashEvent else null,
-                    isTokenAnimating = !skipAnimationForTest && resolution.defenderNewTile != landedTile,
+                    isTokenAnimating = !skipAnimationForTest && resolution.defenderFinalTile != landedTile,
                     highlightEffect = if (fxType != HeroBoardFxType.NONE) {
                         BoardHighlightEffect(
                             tile = landedTile,
@@ -2099,7 +2130,7 @@ class GameViewModel(
                         )
                     } else null,
                     eventBanner = GameEventBanner(
-                        message = resolution.bannerMessage,
+                        message = resolution.description,
                         type = when (resolution.outcomeType) {
                             CombatOutcomeType.ATTACK_HIT -> BannerType.CHARACTER_ABILITY
                             CombatOutcomeType.SHIELD_PARRY, CombatOutcomeType.CRITICAL_PARRY -> BannerType.CHARACTER_ABILITY
@@ -2116,14 +2147,15 @@ class GameViewModel(
                 soundManager.playAbilityActivateSound()
             }
 
-            if (!skipAnimationForTest && resolution.defenderNewTile < landedTile) {
+            if (!skipAnimationForTest && resolution.defenderFinalTile < landedTile) {
                 awaitComposeTokenMovement(
                     playerId = defender.id,
-                    pathTiles = listOf(landedTile, resolution.defenderNewTile),
+                    pathTiles = listOf(landedTile, resolution.defenderFinalTile),
                     movementType = TokenMovementType.EXECUTIONER_HUNT
                 )
             }
-            updatePlayerTileInState(defender.id, resolution.defenderNewTile)
+            updatePlayerTileInState(defender.id, resolution.defenderFinalTile)
+            attacker = updatedAttacker
             anyCombatHappened = true
         }
 
@@ -2163,9 +2195,23 @@ class GameViewModel(
         ) return
 
         val currentPlayer = state.currentPlayer ?: return
+        if (!currentPlayer.resources.isAlive) return
         if (!currentPlayer.canTriggerActiveAbilityNow) return
 
-        val ability = currentPlayer.character.abilityType
+        val activationResult = heroAbilityEngine.activateAbility(currentPlayer)
+        if (activationResult !is AbilityActivationResult.Success) {
+            val failureReason = (activationResult as? AbilityActivationResult.Failure)?.reason ?: "شرایط فعال‌سازی مهیا نیست."
+            showCardSaveFeedback(failureReason)
+            return
+        }
+
+        val playerArmed = activationResult.updatedPlayer
+        _uiState.update { st ->
+            val updated = st.players.map { if (it.id == playerArmed.id) playerArmed else it }
+            st.copy(players = updated)
+        }
+
+        val ability = playerArmed.character.abilityType
         soundManager.playAbilityActivateSound()
 
         viewModelScope.launch {
@@ -2185,7 +2231,7 @@ class GameViewModel(
                                 p.id == currentPlayer.id -> p.copy(
                                     isShieldCharged = true,
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1
+                                    abilityUsesCount = p.abilityUsesCount
                                 )
                                 nearbyRivals.any { it.id == p.id } &&
                                     p.character.abilityType != CharacterAbilityType.EARTH_TITAN &&
@@ -2241,7 +2287,7 @@ class GameViewModel(
                                 if (p.id == currentPlayer.id) {
                                     p.copy(
                                         abilityChargeProgress = 0,
-                                        abilityUsesCount = p.abilityUsesCount + 1
+                                        abilityUsesCount = p.abilityUsesCount
                                     )
                                 } else p
                             }
@@ -2285,7 +2331,7 @@ class GameViewModel(
                                     p.copy(
                                         isActiveAbilityArmedForTurn = true,
                                         abilityChargeProgress = 0,
-                                        abilityUsesCount = p.abilityUsesCount + 1
+                                        abilityUsesCount = p.abilityUsesCount
                                     )
                                 } else p
                             }
@@ -2308,7 +2354,7 @@ class GameViewModel(
                                 p.copy(
                                     isActiveAbilityArmedForTurn = true,
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1
+                                    abilityUsesCount = p.abilityUsesCount
                                 )
                             } else p
                         }
@@ -2340,7 +2386,7 @@ class GameViewModel(
                             if (p.id == currentPlayer.id) {
                                 p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1
+                                    abilityUsesCount = p.abilityUsesCount
                                 )
                             } else p
                         }
@@ -2411,7 +2457,7 @@ class GameViewModel(
                                 p.copy(
                                     leaderSwapWindowTurnsRemaining = 0,
                                     leaderSwapNextChargeTurn = nextPersonalChargeTurn,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     hasUsedOnceAbility = true
                                 )
                             } else p
@@ -2485,7 +2531,7 @@ class GameViewModel(
                             when {
                                 p.id == currentPlayer.id -> p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1
+                                    abilityUsesCount = p.abilityUsesCount
                                 )
                                 targetLeader != null && p.id == targetLeader.id -> p.copy(
                                     gravityCapNextRoll = true
@@ -2529,7 +2575,7 @@ class GameViewModel(
                             when {
                                 p.id == currentPlayer.id -> p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     wormCurseTurnsRemaining = 0,
                                     swampSkipTurnsRemaining = 0,
                                     halveNextRoll = false,
@@ -2575,7 +2621,7 @@ class GameViewModel(
                             if (p.id == currentPlayer.id) {
                                 p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     dragonSoulBoostTurns = 2,
                                     wormCurseTurnsRemaining = 0,
                                     swampSkipTurnsRemaining = 0,
@@ -2617,7 +2663,7 @@ class GameViewModel(
                             if (p.id == currentPlayer.id) {
                                 p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     guardianAngelProtected = true,
                                     isActiveAbilityArmedForTurn = true
                                 )
@@ -2665,7 +2711,7 @@ class GameViewModel(
                             when {
                                 p.id == currentPlayer.id -> p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     phantomPhaseActive = true,
                                     isActiveAbilityArmedForTurn = true
                                 )
@@ -2711,7 +2757,7 @@ class GameViewModel(
                                 p.id == currentPlayer.id -> p.copy(
                                     isActiveAbilityArmedForTurn = true,
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     wormCurseTurnsRemaining = 0,
                                     swampSkipTurnsRemaining = 0,
                                     halveNextRoll = false,
@@ -2764,7 +2810,7 @@ class GameViewModel(
                                 if (p.id == currentPlayer.id) {
                                     p.copy(
                                         abilityChargeProgress = 0,
-                                        abilityUsesCount = p.abilityUsesCount + 1,
+                                        abilityUsesCount = p.abilityUsesCount,
                                         wormCurseTurnsRemaining = 0,
                                         swampSkipTurnsRemaining = 0,
                                         halveNextRoll = false,
@@ -2805,7 +2851,7 @@ class GameViewModel(
                                     p.id == currentPlayer.id -> p.copy(
                                         isActiveAbilityArmedForTurn = true,
                                         abilityChargeProgress = 0,
-                                        abilityUsesCount = p.abilityUsesCount + 1,
+                                        abilityUsesCount = p.abilityUsesCount,
                                         wormCurseTurnsRemaining = 0,
                                         swampSkipTurnsRemaining = 0,
                                         halveNextRoll = false,
@@ -2864,7 +2910,7 @@ class GameViewModel(
                             if (p.id == currentPlayer.id) {
                                 p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     hasUsedOnceAbility = true,
                                     laddersClimbed = p.laddersClimbed + 1,
                                     illusionDecoyTile = decoyTile,
@@ -2918,7 +2964,7 @@ class GameViewModel(
                             if (p.id == currentPlayer.id) {
                                 p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     hasUsedOnceAbility = true
                                 )
                             } else p
@@ -2977,7 +3023,7 @@ class GameViewModel(
                                 if (p.id == currentPlayer.id) {
                                     p.copy(
                                         abilityChargeProgress = 0,
-                                        abilityUsesCount = p.abilityUsesCount + 1,
+                                        abilityUsesCount = p.abilityUsesCount,
                                         hasUsedOnceAbility = true
                                     )
                                 } else p
@@ -2998,7 +3044,7 @@ class GameViewModel(
                             if (p.id == currentPlayer.id) {
                                 p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     hasUsedOnceAbility = true
                                 )
                             } else p
@@ -3067,7 +3113,7 @@ class GameViewModel(
                             when {
                                 p.id == currentPlayer.id -> p.copy(
                                     abilityChargeProgress = 0,
-                                    abilityUsesCount = p.abilityUsesCount + 1,
+                                    abilityUsesCount = p.abilityUsesCount,
                                     berserkerRageTurns = 2
                                 )
                                 affectedRivals.any { it.id == p.id } -> p.copy(
@@ -3490,10 +3536,14 @@ class GameViewModel(
         val maxTiles = stateBeforeMove.maxTiles
         val player = stateBeforeMove.players.find { it.id == playerId } ?: return
         val startTile = player.currentTile
-        val targetTile = startTile + effectiveSteps
 
-        if (targetTile > maxTiles) {
-            val needed = maxTiles - startTile
+        val movementResult = turnMovementEngine.calculateMovement(
+            currentTile = startTile,
+            diceRoll = effectiveSteps
+        )
+
+        if (movementResult.isExactRollNeededFailure) {
+            val needed = movementResult.neededRollForFinish
             soundManager.playDiceTick(0)
             _uiState.update {
                 it.copy(
@@ -3511,7 +3561,8 @@ class GameViewModel(
             return
         }
 
-        val stepPathTiles = (startTile..targetTile).toList()
+        val targetTile = movementResult.targetTile
+        val stepPathTiles = movementResult.stepsPath
         awaitComposeTokenMovement(
             playerId = playerId,
             pathTiles = stepPathTiles,
@@ -3573,9 +3624,13 @@ class GameViewModel(
             checkAndExecuteCoTileHunt(hunterId = playerId, landedTile = finalTile)
         }
 
-        val winningPlayer = _uiState.value.players.find { it.currentTile >= maxTiles }
-        if (winningPlayer != null || finalTile >= maxTiles) {
-            triggerWinnerCelebration(winningPlayer?.id ?: playerId)
+        val matchResult = matchResolutionEngine.checkMatchStatus(
+            players = _uiState.value.players,
+            isEliminationEnabled = false,
+            teamManager = teamManager
+        )
+        if (matchResult.isGameOver) {
+            triggerWinnerCelebration(matchResult.winner?.id ?: playerId)
             return
         }
 
@@ -4537,10 +4592,22 @@ class GameViewModel(
         }
 
         val playerCount = currentState.players.size
-        var candidateIndex = (currentState.currentTurnIndex + 1) % playerCount
+        var candidateIndex = turnMovementEngine.getNextTurnIndex(
+            currentIndex = currentState.currentTurnIndex,
+            playerCount = playerCount,
+            activePlayers = currentState.players
+        )
 
         for (checked in 0 until playerCount) {
-            val candidate = _uiState.value.players[candidateIndex]
+            val candidate = _uiState.value.players.getOrNull(candidateIndex) ?: break
+            if (!candidate.resources.isAlive) {
+                candidateIndex = turnMovementEngine.getNextTurnIndex(
+                    currentIndex = candidateIndex,
+                    playerCount = playerCount,
+                    activePlayers = _uiState.value.players
+                )
+                continue
+            }
             if (candidate.swampSkipTurnsRemaining > 0 || candidate.frozenSkipTurnsRemaining > 0) {
                 val isFrozen = candidate.frozenSkipTurnsRemaining > 0
                 soundManager.playObstacleSound(if (isFrozen) ObstacleType.WIND else ObstacleType.SWAMP)
@@ -4569,7 +4636,11 @@ class GameViewModel(
                     )
                 }
                 delay(1150L)
-                candidateIndex = (candidateIndex + 1) % playerCount
+                candidateIndex = turnMovementEngine.getNextTurnIndex(
+                    currentIndex = candidateIndex,
+                    playerCount = playerCount,
+                    activePlayers = _uiState.value.players
+                )
             } else {
                 break
             }
@@ -4577,23 +4648,29 @@ class GameViewModel(
 
         soundManager.playTurnChangeChime()
 
+        val rawNextPlayer = _uiState.value.players.getOrElse(candidateIndex) { _uiState.value.players.first() }
+        val refreshedNextPlayer = heroAbilityEngine.onTurnStart(rawNextPlayer)
+
         _uiState.update { state ->
-            val nextPlayer = state.players[candidateIndex]
+            val updatedPlayers = state.players.map { p ->
+                if (p.id == refreshedNextPlayer.id) refreshedNextPlayer else p
+            }
             val statusHint = when {
-                nextPlayer.dragonSoulBoostTurns > 0 -> " (روح اژدها فعال: +۲ خانه 🔥)"
-                nextPlayer.berserkerRageTurns > 0 -> " (خشم برسرکر فعال: +۲ خانه 🪨🔥)"
-                nextPlayer.halveNextRoll -> " (تاس این نوبت نصف می‌شود 🥾)"
-                nextPlayer.gravityCapNextRoll -> " (لنگر جاذبه: سقف تاس ۴ است ⚓)"
-                nextPlayer.wormCurseTurnsRemaining > 0 -> " (طلسم کرم: ${nextPlayer.wormCurseTurnsRemaining.toPersianDigits()} نوبت 🪱)"
-                nextPlayer.canTriggerActiveAbilityNow -> " (قابلیت ${nextPlayer.character.displayAbilityTitle} آماده است ⚡)"
+                refreshedNextPlayer.dragonSoulBoostTurns > 0 -> " (روح اژدها فعال: +۲ خانه 🔥)"
+                refreshedNextPlayer.berserkerRageTurns > 0 -> " (خشم برسرکر فعال: +۲ خانه 🪨🔥)"
+                refreshedNextPlayer.halveNextRoll -> " (تاس این نوبت نصف می‌شود 🥾)"
+                refreshedNextPlayer.gravityCapNextRoll -> " (لنگر جاذبه: سقف تاس ۴ است ⚓)"
+                refreshedNextPlayer.wormCurseTurnsRemaining > 0 -> " (طلسم کرم: ${refreshedNextPlayer.wormCurseTurnsRemaining.toPersianDigits()} نوبت 🪱)"
+                refreshedNextPlayer.canTriggerActiveAbilityNow -> " (قابلیت ${refreshedNextPlayer.character.displayAbilityTitle} آماده است ⚡)"
                 else -> ""
             }
             state.copy(
+                players = updatedPlayers,
                 currentTurnIndex = candidateIndex,
                 isTokenAnimating = false,
                 sixRollGlowActive = false,
                 eventBanner = GameEventBanner(
-                    message = "نوبت ${nextPlayer.name} (خانه ${nextPlayer.currentTile.toPersianDigits()})$statusHint است 🎲",
+                    message = "نوبت ${refreshedNextPlayer.name} (خانه ${refreshedNextPlayer.currentTile.toPersianDigits()})$statusHint است 🎲",
                     type = BannerType.NORMAL
                 )
             )

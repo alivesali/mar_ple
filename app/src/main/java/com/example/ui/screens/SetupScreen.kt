@@ -97,6 +97,8 @@ import com.example.model.DifficultyLevel
 import com.example.model.GameCharacter
 import com.example.model.ObstacleType
 import com.example.model.toPersianDigits
+import com.example.model.team.TeamMode
+import androidx.compose.material.icons.filled.Groups
 import com.example.sound.soundscapeInfo
 import com.example.ui.GameUiState
 import com.example.ui.components.AdvancedSettingsTab
@@ -134,6 +136,7 @@ fun SetupScreen(
     onToggleAmbient: () -> Unit = {},
     onPlayHeroStanceSound: (String) -> Unit = {},
     onOpenPawnCollection: (Int) -> Unit = {},
+    onSelectTeamMode: (TeamMode) -> Unit = {},
     onStartGame: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -771,6 +774,81 @@ fun SetupScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.White.copy(alpha = 0.85f)
                                 )
+                            }
+                        }
+
+                        // Team Mode Selector (when playerCount > 1)
+                        if (uiState.playerCount > 1) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 10.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color(0xFF161B26))
+                                    .border(1.dp, RadiantGold.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Groups,
+                                        contentDescription = null,
+                                        tint = RadiantGold,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "حالت تیمی مسابقه (Team Mode)",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = RadiantGold,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    TeamMode.entries.forEach { mode ->
+                                        val isSelected = uiState.teamMode == mode
+                                        val bgColor by animateColorAsState(
+                                            targetValue = if (isSelected) RadiantGold else MysticCardSurface,
+                                            label = "team_mode_${mode.name}"
+                                        )
+                                        val contentColor = if (isSelected) Color(0xFF1A0F2E) else Color.White
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(bgColor)
+                                                .border(
+                                                    width = if (isSelected) 2.dp else 1.dp,
+                                                    color = if (isSelected) Color.White else Color.White.copy(alpha = 0.15f),
+                                                    shape = RoundedCornerShape(12.dp)
+                                                )
+                                                .clickable { onSelectTeamMode(mode) }
+                                                .padding(vertical = 8.dp)
+                                                .testTag("team_mode_${mode.name.lowercase()}"),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = when (mode) {
+                                                    TeamMode.SOLO_FREE_FOR_ALL -> "انفرادی"
+                                                    TeamMode.DUOS_2V2 -> "۲ نفره"
+                                                    TeamMode.TRIOS_3V3 -> "۳ نفره"
+                                                    TeamMode.CUSTOM_TEAMS -> "سفارشی"
+                                                },
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = contentColor,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

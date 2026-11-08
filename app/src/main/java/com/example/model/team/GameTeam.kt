@@ -16,6 +16,13 @@ data class GameTeam(
     val bannerColor: Color,
     val memberPlayerIds: List<Int> = emptyList()
 ) {
+    init {
+        require(id.isNotBlank()) { "Team ID must not be blank" }
+        require(memberPlayerIds.size == memberPlayerIds.distinct().size) {
+            "Team '$id' cannot contain duplicate member IDs: $memberPlayerIds"
+        }
+    }
+
     fun containsPlayer(playerId: Int): Boolean = memberPlayerIds.contains(playerId)
 }
 
@@ -31,15 +38,34 @@ enum class TeamMode(val persianTitle: String, val description: String) {
 
 /**
  * Manages team membership, teammate relationships, and shared tile rules.
+ * Strictly enforces that:
+ * - Team IDs are unique.
+ * - No player belongs to multiple teams concurrently.
+ * - Bidirectional mappings (`teamsMap` and `playerToTeamMap`) remain in strict sync.
+ * - Invalid assignments fail explicitly with [IllegalArgumentException].
  */
 class TeamManager(
     initialTeams: List<GameTeam> = emptyList()
 ) {
-    private val teamsMap: MutableMap<String, GameTeam> = initialTeams.associateBy { it.id }.toMutableMap()
+    private val teamsMap: MutableMap<String, GameTeam> = mutableMapOf()
     private val playerToTeamMap: MutableMap<Int, String> = mutableMapOf()
 
     init {
+        // 1. Verify unique team IDs
+        val teamIds = initialTeams.map { it.id }
+        require(teamIds.size == teamIds.distinct().size) {
+            "Team IDs must be unique across all teams. Given: $teamIds"
+        }
+
+        // 2. Verify no player is in multiple teams
+        val allMemberIds = initialTeams.flatMap { it.memberPlayerIds }
+        require(allMemberIds.size == allMemberIds.distinct().size) {
+            "A player cannot belong to multiple teams concurrently. Given duplicate member assignments: $allMemberIds"
+        }
+
+        // 3. Populate maps in sync
         initialTeams.forEach { team ->
+            teamsMap[team.id] = team
             team.memberPlayerIds.forEach { playerId ->
                 playerToTeamMap[playerId] = team.id
             }
@@ -77,9 +103,13 @@ class TeamManager(
 
     /**
      * Assigns a player to a team.
+     * Fails explicitly if [teamId] does not exist.
+     * Cleanly removes the player from their previous team (if any) and updates both data structures.
      */
     fun assignPlayerToTeam(playerId: Int, teamId: String) {
-        val team = teamsMap[teamId] ?: return
+        val targetTeam = teamsMap[teamId]
+            ?: throw IllegalArgumentException("Target team '$teamId' not found in registered teams")
+
         // Remove from old team if any
         val oldTeamId = playerToTeamMap[playerId]
         if (oldTeamId != null && oldTeamId != teamId) {
@@ -90,10 +120,11 @@ class TeamManager(
                 )
             }
         }
+
         playerToTeamMap[playerId] = teamId
-        if (!team.memberPlayerIds.contains(playerId)) {
-            teamsMap[teamId] = team.copy(
-                memberPlayerIds = team.memberPlayerIds + playerId
+        if (!targetTeam.memberPlayerIds.contains(playerId)) {
+            teamsMap[teamId] = targetTeam.copy(
+                memberPlayerIds = targetTeam.memberPlayerIds + playerId
             )
         }
     }
@@ -111,7 +142,7 @@ class TeamManager(
      * Creates default teams for a player count based on [TeamMode].
      */
     companion object {
-        private val TeamColors = listOf(
+        val TeamColors = listOf(
             Color(0xFF3B82F6), // Blue
             Color(0xFFEF4444), // Red
             Color(0xFF10B981), // Green
@@ -123,6 +154,10 @@ class TeamManager(
         )
 
         fun createDefaultTeams(playerCount: Int, mode: TeamMode): TeamManager {
+            require(playerCount >= 1) {
+                "playerCount must be at least 1, but was: $playerCount"
+            }
+
             val teams = when (mode) {
                 TeamMode.SOLO_FREE_FOR_ALL -> {
                     (0 until playerCount).map { idx ->

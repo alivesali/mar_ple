@@ -27,6 +27,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -277,6 +278,88 @@ fun InGameHeroInfoModal(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = profile.accentGlowColor,
                                     fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // 1.5 PLAYER RESOURCES (HP / MANA / SHIELD)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color(0xFF0F172A).copy(alpha = 0.85f))
+                                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "📊 منابع و وضعیت بقا",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = RadiantGold
+                                )
+                                if (player.teamId != null) {
+                                    Text(
+                                        text = "تیم: ${player.teamId}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.70f)
+                                    )
+                                }
+                            }
+
+                            // HP Bar
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("❤️ سلامتی (HP)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF4ADE80))
+                                    Text("${player.hp.toPersianDigits()} / ${player.resources.maxHp.toPersianDigits()}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                }
+                                LinearProgressIndicator(
+                                    progress = { player.resources.hpPercentage },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = if (player.hp <= 30) Color(0xFFEF4444) else Color(0xFF22C55E),
+                                    trackColor = Color.White.copy(alpha = 0.12f)
+                                )
+                            }
+
+                            // Mana Bar
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("💧 مانا (Mana)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF60A5FA))
+                                    Text("${player.mana.toPersianDigits()} / ${player.resources.maxMana.toPersianDigits()}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                }
+                                LinearProgressIndicator(
+                                    progress = { player.resources.manaPercentage },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = Color(0xFF3B82F6),
+                                    trackColor = Color.White.copy(alpha = 0.12f)
+                                )
+                            }
+
+                            // Shield Bar
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text("🛡️ سپر حفاظتی (Shield)", style = MaterialTheme.typography.labelSmall, color = Color(0xFFFBBF24))
+                                    Text("${player.shield.toPersianDigits()} / ${player.resources.maxShield.toPersianDigits()}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                }
+                                LinearProgressIndicator(
+                                    progress = { player.resources.shieldPercentage },
+                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    color = Color(0xFFF59E0B),
+                                    trackColor = Color.White.copy(alpha = 0.12f)
                                 )
                             }
                         }
