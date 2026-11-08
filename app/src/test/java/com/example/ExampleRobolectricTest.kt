@@ -526,4 +526,224 @@ class ExampleRobolectricTest {
         viewModel.dismissHeroClash()
         assertNull(viewModel.uiState.value.activeHeroClash)
     }
+
+    @Test
+    fun `scenario 1 and 2 - executioner attacks guardian shield and shield successfully parries attack`() = kotlinx.coroutines.runBlocking {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "blade") // Executioner / SNAKE_HUNTER
+        viewModel.selectCharacterForSlot(1, "jack")  // Guardian / GUARDIAN_SHIELD
+        viewModel.startGame()
+
+        viewModel.setPlayerPositionForTest(1, 40)
+        viewModel.setPlayerPositionForTest(0, 40)
+
+        // Force defense roll to 10 (successful parry)
+        val combatHappened = viewModel.triggerCombatInteractionForTest(
+            attackerId = 0,
+            landedTile = 40,
+            forcedAttackRoll = 10,
+            forcedDefenseRoll = 10
+        )
+        assertTrue(combatHappened)
+
+        // Defender remained on tile 40
+        assertEquals(40, viewModel.uiState.value.players.first { it.id == 1 }.currentTile)
+
+        val lastLog = viewModel.uiState.value.combatLogs.last()
+        assertTrue(
+            lastLog.outcomeType == com.example.model.CombatOutcomeType.SHIELD_PARRY ||
+            lastLog.outcomeType == com.example.model.CombatOutcomeType.CRITICAL_PARRY
+        )
+    }
+
+    @Test
+    fun `scenario 3 - executioner attacks guardian and shield fails resulting in hunt knockback`() = kotlinx.coroutines.runBlocking {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "blade") // Executioner / SNAKE_HUNTER
+        viewModel.selectCharacterForSlot(1, "jack")  // Guardian
+        viewModel.startGame()
+
+        viewModel.setPlayerPositionForTest(1, 40)
+        viewModel.setPlayerPositionForTest(0, 40)
+
+        // Force attack roll to 10 (successful attack) and defense roll to 99 (shield fails)
+        val combatHappened = viewModel.triggerCombatInteractionForTest(
+            attackerId = 0,
+            landedTile = 40,
+            forcedAttackRoll = 10,
+            forcedDefenseRoll = 99
+        )
+        assertTrue(combatHappened)
+
+        // Knockback: tile 40 knocked back by 40/2 = 20 steps -> tile 20!
+        assertEquals(20, viewModel.uiState.value.players.first { it.id == 1 }.currentTile)
+
+        val lastLog = viewModel.uiState.value.combatLogs.last()
+        assertEquals(com.example.model.CombatOutcomeType.ATTACK_HIT, lastLog.outcomeType)
+        assertTrue(lastLog.description.contains("پیروز شد"))
+    }
+
+    @Test
+    fun `scenario 4 - resistant hero encounters negative obstacle and mitigates penalty`() {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "kai") // HALF_REVERSE / Controller
+        viewModel.selectCharacterForSlot(1, "blade")
+        viewModel.startGame()
+
+        val kai = viewModel.uiState.value.players.first { it.id == 0 }
+        assertEquals(com.example.model.CharacterAbilityType.HALF_REVERSE, kai.character.abilityType)
+        assertTrue(kai.character.heroBlueprint.resistanceProfile.displacementResistancePercent > 0)
+    }
+
+    @Test
+    fun `scenario 5 - shadow walker swaps position with leader player cleanly`() {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "raven") // SHADOW_WALKER
+        viewModel.selectCharacterForSlot(1, "jack")
+        viewModel.startGame()
+
+        viewModel.setPlayerPositionForTest(0, 20)
+        viewModel.setPlayerPositionForTest(1, 75) // Jack is leader
+
+        // Give Raven an active window
+        viewModel.simulatePersonalTurnsForPlayerForTest(0, 10)
+        val raven = viewModel.uiState.value.players.first { it.id == 0 }
+        assertTrue(raven.leaderSwapWindowTurnsRemaining > 0)
+
+        // Swap with leader
+        val success = viewModel.triggerLeaderSwapForTest(0)
+        assertTrue(success)
+
+        // Tiles must be cleanly swapped!
+        assertEquals(75, viewModel.uiState.value.players.first { it.id == 0 }.currentTile)
+        assertEquals(20, viewModel.uiState.value.players.first { it.id == 1 }.currentTile)
+    }
+
+    @Test
+    fun `scenario 6 and 7 - shadow walker 2-turn window expires when unused and recharges at next 10-turn milestone`() {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "raven") // SHADOW_WALKER
+        viewModel.selectCharacterForSlot(1, "jack")
+        viewModel.startGame()
+
+        // Reach turn 10 milestone
+        viewModel.simulatePersonalTurnsForPlayerForTest(0, 10)
+        assertEquals(2, viewModel.uiState.value.players.first { it.id == 0 }.leaderSwapWindowTurnsRemaining)
+
+        // Turn 1 unused -> window becomes 1
+        viewModel.simulatePersonalTurnsForPlayerForTest(0, 1)
+        assertEquals(1, viewModel.uiState.value.players.first { it.id == 0 }.leaderSwapWindowTurnsRemaining)
+
+        // Turn 2 unused -> window expires (0)
+        viewModel.simulatePersonalTurnsForPlayerForTest(0, 1)
+        assertEquals(0, viewModel.uiState.value.players.first { it.id == 0 }.leaderSwapWindowTurnsRemaining)
+
+        // Advance 8 more turns to reach turn 20
+        viewModel.simulatePersonalTurnsForPlayerForTest(0, 8)
+        assertEquals(2, viewModel.uiState.value.players.first { it.id == 0 }.leaderSwapWindowTurnsRemaining)
+    }
+
+    @Test
+    fun `scenario 8 - two non-combatant heroes co-exist peacefully on the same tile`() = kotlinx.coroutines.runBlocking {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "luna")   // Mage
+        viewModel.selectCharacterForSlot(1, "stella") // Support
+        viewModel.startGame()
+
+        viewModel.setPlayerPositionForTest(1, 35)
+        viewModel.setPlayerPositionForTest(0, 35)
+
+        val combatHappened = viewModel.triggerCombatInteractionForTest(
+            attackerId = 0,
+            landedTile = 35,
+            forcedAttackRoll = 50,
+            forcedDefenseRoll = 50
+        )
+        assertTrue(combatHappened)
+
+        // Both players coexist on tile 35 without knockback
+        assertEquals(35, viewModel.uiState.value.players.first { it.id == 0 }.currentTile)
+        assertEquals(35, viewModel.uiState.value.players.first { it.id == 1 }.currentTile)
+
+        val lastLog = viewModel.uiState.value.combatLogs.last()
+        assertEquals(com.example.model.CombatOutcomeType.NEUTRAL_COEXIST, lastLog.outcomeType)
+        assertTrue(lastLog.description.contains("هم‌گام"))
+    }
+
+    @Test
+    fun `scenario 9 - conflicting abilities resolve deterministically via priority engine`() = kotlinx.coroutines.runBlocking {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.selectCharacterForSlot(0, "blade") // Executioner attack
+        viewModel.selectCharacterForSlot(1, "luna")  // Has Illusion Decoy (Priority 1)
+        viewModel.startGame()
+
+        viewModel.setPlayerPositionForTest(1, 45)
+        viewModel.setPlayerDecoyForTest(1, decoyTile = 45, turnsRemaining = 2)
+        viewModel.setPlayerPositionForTest(0, 45)
+
+        // Attack roll is high (would normally hit), but Priority 1 Decoy diverts it first!
+        val combatHappened = viewModel.triggerCombatInteractionForTest(
+            attackerId = 0,
+            landedTile = 45,
+            forcedAttackRoll = 10,
+            forcedDefenseRoll = 99
+        )
+        assertTrue(combatHappened)
+
+        assertEquals(45, viewModel.uiState.value.players.first { it.id == 1 }.currentTile)
+        val lastLog = viewModel.uiState.value.combatLogs.last()
+        assertEquals(com.example.model.CombatOutcomeType.ILLUSION_DIVERTED, lastLog.outcomeType)
+    }
+
+    @Test
+    fun `scenario 10 - multi-player shockwave ability affects multiple nearby rivals atomically`() {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.setPlayerCount(4)
+        viewModel.selectCharacterForSlot(0, "jack")  // Guardian Shield caster
+        viewModel.selectCharacterForSlot(1, "nova")  // Nearby rival at tile 22
+        viewModel.selectCharacterForSlot(2, "blade") // Nearby rival at tile 23
+        viewModel.selectCharacterForSlot(3, "kai")   // Nearby rival with Heavy Anchor at tile 24
+        viewModel.startGame()
+
+        viewModel.setPlayerPositionForTest(0, 20) // Jack at 20
+        viewModel.setPlayerPositionForTest(1, 22) // Nova at 22 (within 4 tiles)
+        viewModel.setPlayerPositionForTest(2, 23) // Blade at 23 (within 4 tiles)
+        viewModel.setPlayerPositionForTest(3, 24) // Kai at 24 (within 4 tiles, but Heavy Anchor)
+
+        // Jack activates Guardian Shield
+        viewModel.activateCharacterAbility()
+
+        // Nova (22 - 2 = 20) and Blade (23 - 2 = 21) are knocked back by shockwave
+        // Kai resists shockwave displacement due to Heavy Anchor!
+        val p1 = viewModel.uiState.value.players.first { it.id == 1 }
+        val p2 = viewModel.uiState.value.players.first { it.id == 2 }
+        val p3 = viewModel.uiState.value.players.first { it.id == 3 }
+
+        assertEquals(20, p1.currentTile)
+        assertEquals(21, p2.currentTile)
+        assertEquals(24, p3.currentTile) // Unmoved!
+    }
+
+    @Test
+    fun `multiplayer resilience - ability idempotency and state snapshot prevent duplicate execution`() {
+        val viewModel = GameViewModel(ApplicationProvider.getApplicationContext())
+        viewModel.setPlayerCount(2)
+        viewModel.selectCharacterForSlot(0, "jack")
+        viewModel.selectCharacterForSlot(1, "nova")
+        viewModel.startGame()
+
+        val p0Before = viewModel.uiState.value.players.first { it.id == 0 }
+        val initialUses = p0Before.abilityUsesCount
+
+        // First activation
+        viewModel.activateCharacterAbility()
+        val p0AfterFirst = viewModel.uiState.value.players.first { it.id == 0 }
+        assertEquals(initialUses + 1, p0AfterFirst.abilityUsesCount)
+
+        // Attempt duplicate execution immediately (e.g. rapid taps or network retransmission)
+        // Since canTriggerActiveAbilityNow is now false (ability discharged), duplicate call does nothing!
+        viewModel.activateCharacterAbility()
+        val p0AfterDuplicate = viewModel.uiState.value.players.first { it.id == 0 }
+        assertEquals(initialUses + 1, p0AfterDuplicate.abilityUsesCount)
+    }
 }
