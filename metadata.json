@@ -1,0 +1,6 @@
+{
+  "name": "مار و پله اسرار",
+  "description": "بازی کلاسیک و هیجان‌انگیز مار و پله‌ی اسرار با گرافیک مدرن، انیمیشن‌های روان، تاس سه‌بعدی و افکت‌های صوتی جذاب برای ۱ تا ۸ بازیکن.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
